@@ -1,3 +1,7 @@
+"""
+Heavily adapted from https://github.com/ziatdinovmax/atomai/blob/master/atomai/trainers/trainer.py
+"""
+
 import subprocess
 import warnings
 import copy
