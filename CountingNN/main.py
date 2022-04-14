@@ -2,17 +2,19 @@
 Heavily adapted from https://github.com/ziatdinovmax/atomai/blob/master/atomai/trainers/trainer.py
 """
 
+import copy
 import subprocess
 import warnings
-import copy
-from typing import Type, Union, Tuple, Optional, Dict
-import torch
+from collections import OrderedDict
+from typing import Type, Union, Tuple, Optional
+
 import numpy as np
-from FCN import SegResNet
+import torch
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
-from collections import OrderedDict
-from CountingNN.utils import set_train_rng, plot_losses, num_classes_from_labels, check_image_dims, average_weights
+
+from CountingNN.FCN import SegResNet
+from CountingNN.utils import set_train_rng, num_classes_from_labels, check_image_dims
 
 
 class Trainer:

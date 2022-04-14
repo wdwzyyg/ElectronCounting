@@ -3,6 +3,7 @@ from typing import List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from CountingNN.blocks import ConvBlock, ResModule, DilatedBlock, UpsampleBlock
 
 
@@ -130,8 +131,6 @@ class Unet(nn.Module):
         # Final layer used for pixel-wise convolution
         px = self.px(u1)
         return px
-
-
 
 
 class SegResNet(nn.Module):
