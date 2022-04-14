@@ -9,5 +9,5 @@ setup(
     author='Jingrui Wei',
     author_email='jwei74@wisc.edu',
     description='Count single electron in direct electron detector data'
-    
+
 )
