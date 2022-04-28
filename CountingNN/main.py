@@ -1,5 +1,8 @@
 """
 Heavily adapted from https://github.com/ziatdinovmax/atomai/blob/master/atomai/trainers/trainer.py
+
+note for debug: line 158 step(self: int) correct?
+self become numpy array in fit()
 """
 
 import copy
@@ -13,8 +16,9 @@ import torch
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 
+from CountingNN import metrics
 from CountingNN.FCN import SegResNet
-from CountingNN.utils import set_train_rng, num_classes_from_labels, check_image_dims
+from CountingNN.utils import set_train_rng, preprocess_training_image_data, average_weights, plot_losses
 
 
 class Trainer:
@@ -73,37 +77,6 @@ class Trainer:
                 self.net.state_dict()[k].copy_(v_prime)
         return
 
-    def preprocess_training_image_data(self: Union[np.ndarray, torch.Tensor],
-                                       labels_all: Union[np.ndarray, torch.Tensor],
-                                       images_test_all: Union[np.ndarray, torch.Tensor],
-                                       labels_test_all: Union[np.ndarray, torch.Tensor],
-                                       ) -> Tuple[torch.Tensor]:
-        """
-        Preprocess training and test image data
-        """
-        all_data = (self, labels_all, images_test_all, labels_test_all)
-        all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
-        all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
-        if not all_numpy and not all_torch:
-            raise TypeError(
-                "Provide training and test data in the form" +
-                " of numpy arrays or torch tensors")
-        num_classes = num_classes_from_labels(labels_all)
-        (self, labels_all, images_test_all, labels_test_all) = check_image_dims(*all_data, num_classes)
-        if all_numpy:
-            self = torch.from_numpy(self)
-            images_test_all = torch.from_numpy(images_test_all)
-            labels_all = torch.from_numpy(labels_all)
-            labels_test_all = torch.from_numpy(labels_test_all)
-        self, images_test_all = self.float(), images_test_all.float()
-        if num_classes > 1:
-            labels_all, labels_test_all = labels_all.long(), labels_test_all.long()
-        else:
-            labels_all, labels_test_all = labels_all.float(), labels_test_all.float()
-
-        return (self, labels_all, images_test_all,
-                labels_test_all, num_classes)
-
     def select_loss(self, loss: str, nb_classes: int = None):
         """
         Selects loss for DCNN model training
@@ -147,25 +120,77 @@ class Trainer:
 
         return features, targets
 
-    def step(self: int) -> None:
+    def step(self, e: int) -> None:
         """
         Single train-test step which passes a single
         mini-batch (for both training and testing), i.e.
         1 "epoch" = 1 mini-batch
         """
         features, targets = self.dataloader(
-            self.batch_idx_train[self], mode='train')
+            self.batch_idx_train[e], mode='train')
         # Training step
         loss = self.train_step(features, targets)
         self.loss_acc["train_loss"].append(loss[0])
         features_, targets_ = self.dataloader(
-            self.batch_idx_test[self], mode='test')
+            self.batch_idx_test[e], mode='test')
         # Test step
         loss_ = self.test_step(features_, targets_)
         self.loss_acc["test_loss"].append(loss_[0])
         if self.compute_accuracy:
             self.loss_acc["train_accuracy"].append(loss[1])
             self.loss_acc["test_accuracy"].append(loss_[1])
+
+    def train_step(self,
+                   feat: torch.Tensor,
+                   tar: torch.Tensor) -> Tuple[float]:
+        """
+        Propagates image(s) through a network to get model's prediction
+        and compares predicted value with ground truth; then performs
+        backpropagation to compute gradients and optimizes weights.
+
+        Args:
+            feat: input features
+            tar: targets
+        """
+        self.net.train()
+        self.optimizer.zero_grad()
+        feat, tar = feat.to(self.device), tar.to(self.device)
+        prob = self.net(feat)
+        loss = self.criterion(prob, tar)
+        loss.backward()
+        self.optimizer.step()
+        if self.compute_accuracy:
+            acc_score = self.accuracy_fn(tar, prob)
+            return (loss.item(), acc_score)
+        return (loss.item(),)
+
+    def accuracy_fn(self,
+                    y: torch.Tensor,
+                    y_prob: torch.Tensor,
+                    *args):
+        iou_score = metrics.IoU(
+                y, y_prob, self.nb_class).evaluate()
+        return iou_score
+
+    def test_step(self,
+                  feat: torch.Tensor,
+                  tar: torch.Tensor) -> float:
+        """
+        Forward pass for test data with deactivated autograd engine
+
+        Args:
+            feat: input features
+            tar: targets
+        """
+        feat, tar = feat.to(self.device), tar.to(self.device)
+        self.net.eval()
+        with torch.no_grad():
+            prob = self.net(feat)
+            loss = self.criterion(prob, tar)
+        if self.compute_accuracy:
+            acc_score = self.accuracy_fn(tar, prob)
+            return (loss.item(), acc_score)
+        return (loss.item(),)
 
     def save_running_weights(self, e: int) -> None:
         """
@@ -185,9 +210,6 @@ class Trainer:
         Print loss and (optionally) IoU score on train
         and test data, as well as GPU memory usage.
         """
-        accuracy_metrics = self.accuracy_metrics
-        if accuracy_metrics is None:
-            accuracy_metrics = "Accuracy"
         if torch.cuda.is_available():
             result = subprocess.check_output(
                 [
@@ -199,21 +221,21 @@ class Trainer:
         else:
             gpu_usage = ['N/A ', ' N/A']
         if self.compute_accuracy:
-            print('Epoch {}/{} ...'.format(e+1, self.training_cycles),
+            print('Epoch {}/{} ...'.format(e + 1, self.training_cycles),
                   'Training loss: {} ...'.format(
                       np.around(self.loss_acc["train_loss"][-1], 4)),
                   'Test loss: {} ...'.format(
                       np.around(self.loss_acc["test_loss"][-1], 4)),
                   'Train {}: {} ...'.format(
-                      accuracy_metrics,
+                      'Accuracy',
                       np.around(self.loss_acc["train_accuracy"][-1], 4)),
                   'Test {}: {} ...'.format(
-                      accuracy_metrics,
+                      'Accuracy',
                       np.around(self.loss_acc["test_accuracy"][-1], 4)),
                   'GPU memory usage: {}/{}'.format(
                       gpu_usage[0], gpu_usage[1]))
         else:
-            print('Epoch {}/{} ...'.format(e+1, self.training_cycles),
+            print('Epoch {}/{} ...'.format(e + 1, self.training_cycles),
                   'Training loss: {} ...'.format(
                       np.around(self.loss_acc["train_loss"][-1], 4)),
                   'Test loss: {} ...'.format(
@@ -265,25 +287,26 @@ class Trainer:
             optimizer: Optional[Type[torch.optim.Optimizer]] = None,
             training_cycles: int = 1000,
             batch_size: int = 32,
-            compute_accuracy: bool = False,
+            #compute_accuracy: bool = False,
             swa: bool = False,
             perturb_weights: bool = False,
             **kwargs):
 
+        #print(self.shape)
+        self.X_train, self.y_train = X_train, y_train
+        self.X_test, self.y_test = X_test, y_test
         self.training_cycles = training_cycles
         self.batch_size = batch_size
-        self.compute_accuracy = compute_accuracy
+        #self.compute_accuracy = compute_accuracy
         self.swa = swa
         self.nb_class = nb_class
-        self.optimizer = optimizer
-        self.swa = swa
+        #self.optimizer = optimizer
+        #self.swa = swa
         self.perturb_weights = perturb_weights
-        self.training_cycles = training_cycles
-        self.batch_size = batch_size
-        self.filename = "model"
-        self.print_loss = kwargs.get("print_loss")
-        self.loss_acc = {"train_loss": [], "test_loss": [],
-                         "train_accuracy": [], "test_accuracy": []}
+        #self.filename = "model"
+        #self.print_loss = kwargs.get("print_loss")
+        #self.loss_acc = {"train_loss": [], "test_loss": [],
+        #                 "train_accuracy": [], "test_accuracy": []}
 
         net = SegResNet()
         net.to(self.device)
@@ -300,7 +323,7 @@ class Trainer:
                 X_train, y_train, test_size=kwargs.get("test_size", .15),
                 shuffle=True, random_state=kwargs.get("seed", 1))
 
-        (X_train, y_train, X_test, y_test, nb_classes) = self.preprocess_training_image_data(
+        (X_train, y_train, X_test, y_test, nb_classes) = preprocess_training_image_data(
             X_train, y_train, X_test, y_test, batch_size, kwargs.get("memory_alloc", 4))
 
         if nb_classes != self.nb_class:
@@ -311,9 +334,8 @@ class Trainer:
         # set ? #
         if self.perturb_weights:
             print("To use time-dependent weights perturbation, turn off the batch normalization layers")
-            if isinstance(perturb_weights, bool):
-                e_p = 50
-                perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
+            if isinstance(self.perturb_weights, bool):
+                self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": 50}
 
         params = net.parameters()
         if self.optimizer is None:
@@ -337,7 +359,6 @@ class Trainer:
         if self.print_loss is None:
             print_loss = 100
 
-        accuracy_metrics = kwargs.get("accuracy_metrics")
         self.filename = kwargs.get("filename", "./model")
 
         # def select_lr(e: int) -> None:
@@ -363,10 +384,9 @@ class Trainer:
         self.eval_model()
         if swa:
             print("Performing stochastic weight averaging...")
-            net.load_state_dict(self.average_weights(self.running_weights))
+            net.load_state_dict(average_weights(self.running_weights))
             self.eval_model()
 
-        self.plot_losses(self.loss_acc["train_loss"], self.loss_acc["test_loss"])
+        plot_losses(self.loss_acc["train_loss"], self.loss_acc["test_loss"])
 
-        return net
-
+        return self.net
