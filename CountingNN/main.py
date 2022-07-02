@@ -292,9 +292,6 @@ class Trainer:
             perturb_weights: bool = False,
             **kwargs):
 
-        #print(self.shape)
-        self.X_train, self.y_train = X_train, y_train
-        self.X_test, self.y_test = X_test, y_test
         self.training_cycles = training_cycles
         self.batch_size = batch_size
         #self.compute_accuracy = compute_accuracy
@@ -308,13 +305,13 @@ class Trainer:
         #self.loss_acc = {"train_loss": [], "test_loss": [],
         #                 "train_accuracy": [], "test_accuracy": []}
 
-        net = SegResNet()
-        net.to(self.device)
+        self.net = SegResNet()
+        self.net.to(self.device)
         if self.device == 'cpu':
             warnings.warn(
                 "No GPU found. The training can be EXTREMELY slow",
                 UserWarning)
-        weights = net.state_dict()
+        weights = self.net.state_dict()
 
         #############
         # set data #
@@ -323,7 +320,7 @@ class Trainer:
                 X_train, y_train, test_size=kwargs.get("test_size", .15),
                 shuffle=True, random_state=kwargs.get("seed", 1))
 
-        (X_train, y_train, X_test, y_test, nb_classes) = preprocess_training_image_data(
+        (self.X_train, self.y_train, self.X_test, self.y_test, nb_classes) = preprocess_training_image_data(
             X_train, y_train, X_test, y_test, batch_size, kwargs.get("memory_alloc", 4))
 
         if nb_classes != self.nb_class:
@@ -337,12 +334,12 @@ class Trainer:
             if isinstance(self.perturb_weights, bool):
                 self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": 50}
 
-        params = net.parameters()
+        params = self.net.parameters()
         if self.optimizer is None:
             # will be over-witten by lr_scheduler (if activated)
-            optimizer = torch.optim.Adam(params, lr=1e-3)
+            self.optimizer = torch.optim.Adam(params, lr=1e-3)
         else:
-            optimizer = optimizer(params)
+            self.optimizer = optimizer(params)
         self.criterion = self.select_loss(loss, nb_class)
 
         r = training_cycles // len(X_train)
@@ -379,12 +376,12 @@ class Trainer:
                     e == training_cycles - 1]):
                 self.print_statistics(e)
         # save model weights
-        torch.save(net.state_dict(), self.filename + '.tar')
+        torch.save(self.net.state_dict(), self.filename + '.tar')
 
         self.eval_model()
         if swa:
             print("Performing stochastic weight averaging...")
-            net.load_state_dict(average_weights(self.running_weights))
+            self.net.load_state_dict(average_weights(self.running_weights))
             self.eval_model()
 
         plot_losses(self.loss_acc["train_loss"], self.loss_acc["test_loss"])

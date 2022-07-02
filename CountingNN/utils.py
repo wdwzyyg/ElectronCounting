@@ -160,7 +160,6 @@ def array2list_(x: Union[np.ndarray, torch.Tensor],
     if isinstance(x, torch.Tensor):
         device = 'cuda' if torch.cuda.is_available() and not store_on_cpu else 'cpu'
         x = x.to(device)
-        print(x.shape)
     n_batches = int(np.divmod(x.shape[0], batch_size)[0])
     split = np.split if isinstance(x, np.ndarray) else torch.chunk
     return split(x[:n_batches*batch_size], n_batches)
