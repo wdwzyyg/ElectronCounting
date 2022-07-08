@@ -47,6 +47,7 @@ class GeneralizedDataset:
             masks_e = torch.zeros(masks.size()[0], 256, 256)
             for i, box in enumerate(boxes):
                 mask_e = masks[i]
+                box = torch.tensor(box, dtype=torch.int)
                 if box[0] < 0:
                     mask_e = mask_e[-box[0]:]
                 if box[1] < 0:
