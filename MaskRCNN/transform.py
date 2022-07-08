@@ -12,8 +12,8 @@ class Transformer:
         self.image_std = image_std
 
     def __call__(self, image, target):
-        image = self.normalize(image)
-        image, target = self.resize(image, target)
+        # image = self.normalize(image)
+        # image, target = self.resize(image, target)
         image = self.batched_image(image)
 
         return image, target

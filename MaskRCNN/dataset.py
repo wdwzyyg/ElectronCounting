@@ -41,7 +41,7 @@ class GeneralizedDataset:
 
         boxes = np.load(dir_b)['arr_' + str(int(img_id[3:]))]
         masks = np.load(dir_m)['arr_' + str(int(img_id[3:]))]
-        boxes = torch.tensor(boxes, dtype=torch.int)
+        boxes = torch.tensor(boxes, dtype=torch.float32)
         masks = torch.tensor(masks, dtype=torch.uint8)
         if self.expandmask:
             masks_e = torch.zeros(masks.size()[0], 256, 256)
@@ -56,8 +56,8 @@ class GeneralizedDataset:
                 if box[3] > 256:
                     mask_e = mask_e[:, :(box[3] - 256)]
 
-                masks_e[i] = F.pad(mask_e, (max(0, box[1]), 256 - max(0, box[1]) - mask_e.size()[1], max(0, box[0]),
-                                            256 - max(0, box[0]) - mask_e.size()[0]), "constant", 0)
+                masks_e[i] = F.pad(mask_e, (int(max(0, box[1])), 256 - int(max(0, box[1])) - mask_e.size()[1], int(max(0, box[0])),
+                                            256 - int(max(0, box[0])) - mask_e.size()[0]), "constant", 0)
 
             masks = masks_e
 
