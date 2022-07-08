@@ -55,7 +55,7 @@ class Transformer:
         size = image.shape[-2:]
         max_size = tuple(math.ceil(s / stride) * stride for s in size)
 
-        batch_shape = (image.shape[-3],) + max_size
+        batch_shape = (1,) + max_size
         batched_img = image.new_full(batch_shape, 0)
         batched_img[:, :image.shape[-2], :image.shape[-1]] = image
 
