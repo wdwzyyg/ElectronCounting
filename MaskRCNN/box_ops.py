@@ -1,6 +1,7 @@
 import math
 
 import torch
+import torchvision
 
 
 class BoxCoder:
@@ -120,4 +121,4 @@ def nms(box, score, threshold):
         keep (Tensor): indices of boxes filtered by NMS.
     """
 
-    return torch.ops.torchvision.nms(box, score, threshold)
+    return torchvision.ops.nms(box, score, threshold)
