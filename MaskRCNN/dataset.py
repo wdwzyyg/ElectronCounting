@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torchvision import transforms
 
 
 class GeneralizedDataset:
@@ -11,9 +10,8 @@ class GeneralizedDataset:
     target: dict(image_id(str), boxes(tensor int32), masks(tensor uint8))
     """
 
-    def __init__(self, data_dir, split, train=False, expandmask=False):
+    def __init__(self, data_dir, train=False, expandmask=False):
         self.data_dir = data_dir
-        self.split = split
         self.train = train
         self.expandmask = expandmask
 
@@ -22,7 +20,6 @@ class GeneralizedDataset:
     def __getitem__(self, i):
         img_id = self.ids[i]  # filename number 000-049 and index number 000-199
         image = self.get_image(img_id)
-        image = transforms.ToTensor()(image)
         target = self.get_target(img_id) if self.train else {}
         return image, target
 
