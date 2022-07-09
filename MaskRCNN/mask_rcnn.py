@@ -89,7 +89,7 @@ class MaskRCNN(nn.Module):
         out_channels = backbone.out_channels
 
         # ------------- RPN --------------------------
-        anchor_sizes = (128, 256, 512)
+        anchor_sizes = (1, 2, 4)
         anchor_ratios = (0.5, 1, 2)
         num_anchors = len(anchor_sizes) * len(anchor_ratios)
         rpn_anchor_generator = AnchorGenerator(anchor_sizes, anchor_ratios)
