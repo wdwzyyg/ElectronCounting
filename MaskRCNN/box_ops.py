@@ -87,9 +87,10 @@ def box_iou(box_a, box_b):
         iou (Tensor[N, M]): the NxM matrix containing the pairwise
             IoU values for every element in box_a and box_b
     """
-
+    print("Will compute boxes: ", box_a.size(dim=0),box_b.size(dim=0))
     lt = torch.max(box_a[:, None, :2], box_b[:, :2])
     rb = torch.min(box_a[:, None, 2:], box_b[:, 2:])
+    print("max min done")
 
     wh = (rb - lt).clamp(min=0, max=math.inf)
     inter = wh[:, :, 0] * wh[:, :, 1]
