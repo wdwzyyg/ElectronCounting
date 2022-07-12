@@ -64,7 +64,8 @@ class RoIHeads(nn.Module):
 
     def select_training_samples(self, proposal, target):
         gt_box = target['boxes']
-        gt_label = target['labels']
+        # gt_label = target['labels']
+        gt_label = torch.full(gt_box.size(dim=0), 1, dtype=torch.int)
         proposal = torch.cat((proposal, gt_box))
 
         iou = box_iou(gt_box, proposal)
