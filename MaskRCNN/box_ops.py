@@ -92,12 +92,30 @@ def box_iou(box_a, box_b):
     rb = torch.min(box_a[:, None, 2:], box_b[:, 2:])
     print("max min done")
 
-    wh = (rb - lt).clamp(min=0, max=math.inf)
-    inter = wh[:, :, 0] * wh[:, :, 1]
-    area_a = torch.prod(box_a[:, 2:] - box_a[:, :2], 1)
-    area_b = torch.prod(box_b[:, 2:] - box_b[:, :2], 1)
+    # wh = (rb - lt).clamp(min=0, max=math.inf)
+    # inter = wh[:, :, 0] * wh[:, :, 1]
+    # area_a = torch.prod(box_a[:, 2:] - box_a[:, :2], 1)
+    # area_b = torch.prod(box_b[:, 2:] - box_b[:, :2], 1)
+    #
+    # return inter / (area_a[:, None] + area_b - inter)
+    N = int(len(box_a))
+    M = int(len(box_b))
+    iou = torch.zeros([N, M]).to(box_a.device)
 
-    return inter / (area_a[:, None] + area_b - inter)
+    area2 = box_b.area()
+    for i in range(0, N, 20):
+        area1 = box_a[i:min(i+20, N)].area()
+
+        wh = (rb[i:min(i+20, N), :] - lt[i:min(i+20, N), :]).clamp(min=0)  # [<=20,M,2]
+        inter = wh[:, :, 0] * wh[:, :, 1]  # [<=20,M]
+
+        # handle empty boxes
+        iou[i:min(i+20, N), :] = torch.where(
+            inter > 0,
+            inter / (area1[:, None] + area2 - inter),
+            torch.zeros(1, dtype=inter.dtype, device=inter.device),
+        )
+    return iou
 
 
 def process_box(box, score, image_shape, min_size):
