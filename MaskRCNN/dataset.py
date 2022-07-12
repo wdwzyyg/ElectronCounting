@@ -10,12 +10,12 @@ class GeneralizedDataset:
     target: dict(image_id(str), boxes(tensor int32), masks(tensor uint8))
     """
 
-    def __init__(self, data_dir, train=False, expandmask=False):
+    def __init__(self, data_dir, train=False, filenum = 25, expandmask=False):
         self.data_dir = data_dir
         self.train = train
         self.expandmask = expandmask
 
-        self.ids = ["%03d" % i + "%03d" % j for i in [*range(50)] for j in [*range(200)]]
+        self.ids = ["%03d" % i + "%03d" % j for i in [*range(filenum)] for j in [*range(200)]]
 
     def __getitem__(self, i):
         img_id = self.ids[i]  # filename number 000-049 and index number 000-199
