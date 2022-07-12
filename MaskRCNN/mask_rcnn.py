@@ -137,7 +137,7 @@ class MaskRCNN(nn.Module):
         image, target = self.transformer(image, target)
         image_shape = image.shape[-2:]
         feature = self.backbone(image)
-
+        print('image size:', image.size(), 'feature size:',feature.size())
         proposal, rpn_losses = self.rpn(feature, image_shape, target)
         result, roi_losses = self.head(feature, proposal, image_shape, target)
 
