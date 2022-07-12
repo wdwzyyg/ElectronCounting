@@ -76,8 +76,10 @@ class BoxCoder:
         return target
 
 
+@torch.jit.script
 def box_iou(box_a, box_b):
     """
+    use torch.jit to save GPU memory
     Arguments:
         boxe_a (Tensor[N, 4])
         boxe_b (Tensor[M, 4])
@@ -89,7 +91,7 @@ def box_iou(box_a, box_b):
     lt = torch.max(box_a[:, None, :2], box_b[:, :2])
     rb = torch.min(box_a[:, None, 2:], box_b[:, 2:])
 
-    wh = (rb - lt).clamp(min=0)
+    wh = (rb - lt).clamp(min=0, max=math.inf)
     inter = wh[:, :, 0] * wh[:, :, 1]
     area_a = torch.prod(box_a[:, 2:] - box_a[:, :2], 1)
     area_b = torch.prod(box_b[:, 2:] - box_b[:, :2], 1)
