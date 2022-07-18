@@ -6,11 +6,11 @@ import torch.nn.functional as F
 class GeneralizedDataset:
     """
     Returns:
-    image: 256 x 256 tensor float32
-    target: dict(image_id(str), boxes(tensor int32), masks(tensor uint8))
+    image: 256 x 256 tensor int16
+    target: dict(image_id(str), boxes(tensor int16), masks(tensor uint8))
     """
 
-    def __init__(self, data_dir, train=False, filenum = 25, expandmask=False):
+    def __init__(self, data_dir, train=False, filenum=25, expandmask=False):
         self.data_dir = data_dir
         self.train = train
         self.expandmask = expandmask
@@ -57,10 +57,11 @@ class GeneralizedDataset:
                 if box[3] > 256:
                     mask_e = mask_e[:, :(box[3] - 256)]
 
-                masks_e[i] = F.pad(mask_e, (int(max(0, box[1])), 256 - int(max(0, box[1])) - mask_e.size()[1], int(max(0, box[0])),
-                                            256 - int(max(0, box[0])) - mask_e.size()[0]), "constant", 0)
+                masks_e[i] = F.pad(mask_e, (
+                    int(max(0, box[1])), 256 - int(max(0, box[1])) - mask_e.size()[1], int(max(0, box[0])),
+                    256 - int(max(0, box[0])) - mask_e.size()[0]), "constant", 0)
 
             masks = masks_e
 
-        target = dict(boxes=boxes, masks=masks)
+        target = dict(image_ids = img_id, boxes=boxes, masks=masks)
         return target

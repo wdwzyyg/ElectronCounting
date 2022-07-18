@@ -20,7 +20,6 @@ class MaskRCNN(nn.Module):
     containing:
         - boxes (FloatTensor[N, 4]): the ground-truth boxes in [xmin, ymin, xmax, ymax] format, with values
           between 0-H and 0-W
-        - labels (Int64Tensor[N]): the class label for each ground-truth box
         - masks (UInt8Tensor[N, H, W]): the segmentation binary masks for each instance
     The model returns a Dict[Tensor], containing the classification and regression losses
     for both the RPN and the R-CNN, and the mask loss.
@@ -119,11 +118,11 @@ class MaskRCNN(nn.Module):
             box_reg_weights,
             box_score_thresh, box_nms_thresh, box_num_detections)
 
-        self.head.mask_roi_pool = RoIAlign(output_size=(14, 14), sampling_ratio=2)
+        # self.head.mask_roi_pool = RoIAlign(output_size=(14, 14), sampling_ratio=2)
 
-        layers = (256, 256, 256, 256)
-        dim_reduced = 256
-        self.head.mask_predictor = MaskRCNNPredictor(out_channels, layers, dim_reduced, num_classes)
+        # layers = (256, 256, 256, 256)
+        # dim_reduced = 256
+        # self.head.mask_predictor = MaskRCNNPredictor(out_channels, layers, dim_reduced, num_classes)
 
         # ------------ Transformer --------------------------
         self.transformer = Transformer(
@@ -153,17 +152,18 @@ class FastRCNNPredictor(nn.Module):
         super().__init__()
         self.fc1 = nn.Linear(in_channels, mid_channels)
         self.fc2 = nn.Linear(mid_channels, mid_channels)
-        self.cls_score = nn.Linear(mid_channels, num_classes)
-        self.bbox_pred = nn.Linear(mid_channels, num_classes * 4)
+        # self.cls_score = nn.Linear(mid_channels, num_classes)
+        # self.bbox_pred = nn.Linear(mid_channels, num_classes * 4)
+        self.bbox_pred = nn.Linear(mid_channels, 4)
 
     def forward(self, x):
         x = x.flatten(start_dim=1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        score = self.cls_score(x)
+        # score = self.cls_score(x)
         bbox_delta = self.bbox_pred(x)
 
-        return score, bbox_delta
+        return bbox_delta
 
 
 class MaskRCNNPredictor(nn.Sequential):
