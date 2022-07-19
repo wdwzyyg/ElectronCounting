@@ -63,5 +63,5 @@ class GeneralizedDataset:
 
             masks = masks_e
 
-        target = dict(image_ids = img_id, boxes=boxes, masks=masks)
+        target = dict(image_ids=img_id, boxes=boxes, masks=masks)
         return target

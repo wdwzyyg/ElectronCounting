@@ -11,7 +11,7 @@ from MaskRCNN import mask_rcnn
 from MaskRCNN.dataset import GeneralizedDataset
 
 usecuda = True
-data = GeneralizedDataset('./data/', True, 5, True)
+data = GeneralizedDataset('./data/', True, filenum=1, expandmask=True)
 args = {
     'batch_size': 1,
     'lr': 1 / 16 * 0.02,
@@ -20,7 +20,8 @@ args = {
     'lr_steps': [6, 7],
     'epochs': 3,
     'warmup_iters': 1000,
-    'print_freq': 1
+    'print_freq': 1,
+    'iters': 10
 }
 
 
@@ -125,6 +126,9 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
 # generate results file
 @torch.no_grad()
 def generate_results(model, data_loader, device, param):
+    """
+    make and save predictions
+    """
     iters = len(data_loader) if param.iters < 0 else param.iters
 
     t_m = Meter("total")
@@ -151,7 +155,7 @@ def generate_results(model, data_loader, device, param):
 
     A = time.time() - A
     print("iter: {:.1f}, total: {:.1f}, model: {:.1f}".format(1000 * A / iters, 1000 * t_m.avg, 1000 * m_m.avg))
-    torch.save(prediction, param.results)
+    torch.save(prediction, param.result_path)
 
     return A / iters
 
@@ -184,11 +188,11 @@ def evaluate(model, data_loader, device, param, generate=True):
     return output, iter_eval
 
 
-def fit(use_cuda=usecuda, data_set = data):
+def fit(use_cuda=usecuda, data_set=data):
     device = torch.device("cuda" if torch.cuda.is_available() and use_cuda else "cpu")
     indices = torch.randperm(len(data_set)).tolist()
     d_train, d_test = torch.utils.data.random_split(data_set, [int(len(data_set)/2), int(len(data_set)/2)])
-    model = mask_rcnn.maskrcnn_2conv(True, num_classes=2, weights_path='./modelweights/CNN_smoothl1.tar').to(device)
+    model = mask_rcnn.maskrcnn_2conv(True, num_classes=1, weights_path='./modelweights/CNN_smoothl1.tar').to(device)
 
     pms = Parameters(**args)
     params = [p for p in model.parameters() if p.requires_grad]
@@ -214,7 +218,7 @@ def fit(use_cuda=usecuda, data_set = data):
         collect_gpu_info("maskrcnn", [1 / iter_train, 1 / iter_eval])
         # print(eval_output.get_AP())
 
-        pmr.save_ckpt(model, optimizer, trained_epoch, pms.ckpt_path, eval_info=str(eval_output))
+        save_ckpt(model, optimizer, trained_epoch, pms.ckpt_path, eval_info=str(eval_output))
         # save checkpoint
         checkpoint = {"model": model.state_dict(), "optimizer": optimizer.state_dict(),
                       "epochs": trained_epoch, "eval_output": eval_output}
