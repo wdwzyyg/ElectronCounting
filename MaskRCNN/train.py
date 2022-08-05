@@ -2,31 +2,17 @@ import bisect
 import glob
 import os
 import re
-import sys
 import time
 
 import torch
 
 from MaskRCNN import mask_rcnn
-from MaskRCNN.dataset import GeneralizedDataset
-
-usecuda = True
-data = GeneralizedDataset('./data/', True, filenum=1, expandmask=True)
-args = {
-    'batch_size': 1,
-    'lr': 1 / 16 * 0.02,
-    'momentum': 0.9,
-    'weight_decay': 0.0001,
-    'lr_steps': [6, 7],
-    'epochs': 3,
-    'warmup_iters': 1000,
-    'print_freq': 1,
-    'iters': 10
-}
+from MaskRCNN.gpu import collect_gpu_info
 
 
 class Parameters:
-    def __init__(self, batch_size, lr, momentum, weight_decay, lr_steps, epochs, warmup_iters, print_freq, iters, **kwargs):
+    def __init__(self, batch_size, lr, momentum, weight_decay, lr_steps, epochs, warmup_iters, print_freq, iters,
+                 **kwargs):
         """
         :param batch_size:
         :param lr:
@@ -78,7 +64,7 @@ class Meter:
 def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
     for p in optimizer.param_groups:
         p["lr"] = param.lr_lambda(epoch) * param.lr
-
+    train_loss = []
     # iters = len(data_loader) if args.iters < 0 else args.iters
     iters = len(data_loader)
 
@@ -100,6 +86,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
         S = time.time()
 
         losses = model(image, target)
+        train_loss.append(losses)
         total_loss = sum(losses.values())
         m_m.update(time.time() - S)
 
@@ -120,110 +107,87 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
     A = time.time() - A
     print("iter: {:.1f}, total: {:.1f}, model: {:.1f}, backward: {:.1f}".format(1000 * A / iters, 1000 * t_m.avg,
                                                                                 1000 * m_m.avg, 1000 * b_m.avg))
-    return A / iters
+    return A / iters, train_loss
 
 
-# generate results file
 @torch.no_grad()
-def generate_results(model, data_loader, device, param):
+def evaluate(model, data_loader, device, epoch, arg, generate=True):
     """
     make and save predictions
     """
-    iters = len(data_loader) if param.iters < 0 else param.iters
-
+    iters = len(data_loader) if arg.iters < 0 else arg.iters
+    test_loss = []
     t_m = Meter("total")
     m_m = Meter("model")
-    coco_results = []
+    results = []
     model.eval()
     A = time.time()
     for i, (image, target) in enumerate(data_loader):
         T = time.time()
-
+        num_iters = epoch * len(data_loader) + i
         image = image.to(device)
         target = {k: v.to(device) for k, v in target.items()}
 
         S = time.time()
         # torch.cuda.synchronize()
-        output = model(image)
+        output, losses = model(image)
+        test_loss.append(losses)
+        if num_iters % arg.print_freq == 0:
+            print("Test: {}\t".format(num_iters), "\t".join("{:.3f}".format(l.item()) for l in losses.values()))
         m_m.update(time.time() - S)
 
-        prediction = {target["image_ids"].item(): {k: v.cpu() for k, v in output.items()}}
-
+        target["image_ids"] = "%06d" % target["image_ids"]  # int to str
+        prediction = {target["image_ids"]: {k: v.cpu() for k, v in output.items()}}
+        results.extend(prediction)
         t_m.update(time.time() - T)
         if i >= iters - 1:
             break
 
     A = time.time() - A
     print("iter: {:.1f}, total: {:.1f}, model: {:.1f}".format(1000 * A / iters, 1000 * t_m.avg, 1000 * m_m.avg))
-    torch.save(prediction, param.result_path)
-
-    return A / iters
-
-
-def evaluate(model, data_loader, device, param, generate=True):
-    # ref: https: // github.com / cocodataset / cocoapi / blob / master / PythonAPI / pycocotools / cocoeval.py
-    iter_eval = None
     if generate:
-        iter_eval = generate_results(model, data_loader, device, param)
+        torch.save(results, arg.result_path)
 
-    dataset = data_loader  #
-    iou_types = ["bbox"]
-    coco_evaluator = CocoEvaluator(dataset.coco, iou_types)
-
-    results = torch.load(param.result_path, map_location="cpu")
-
-    S = time.time()
-    coco_evaluator.accumulate(results)
-    print("accumulate: {:.1f}s".format(time.time() - S))
-
-    # collect outputs of buildin function print
-    temp = sys.stdout
-    sys.stdout = TextArea()
-
-    coco_evaluator.summarize()
-
-    output = sys.stdout
-    sys.stdout = temp
-
-    return output, iter_eval
+    return A / iters, test_loss
 
 
-def fit(use_cuda=usecuda, data_set=data):
+def fit(use_cuda, data_set, hp, **kwargs):
     device = torch.device("cuda" if torch.cuda.is_available() and use_cuda else "cpu")
     indices = torch.randperm(len(data_set)).tolist()
-    d_train, d_test = torch.utils.data.random_split(data_set, [int(len(data_set)/2), int(len(data_set)/2)])
-    model = mask_rcnn.maskrcnn_2conv(True, num_classes=1, weights_path='./modelweights/CNN_smoothl1.tar').to(device)
+    d_train, d_test = torch.utils.data.random_split(data_set, [int(len(data_set) / 2), int(len(data_set) / 2)])
+    model = mask_rcnn.maskrcnn_2conv(True, num_classes=2, rpn_param=kwargs.get('rpn_param', None),
+                                     roihead_param=kwargs.get('rpn_param', None),
+                                     weights_path='./modelweights/CNN_smoothl1.tar').to(device)
 
-    pms = Parameters(**args)
+    pms = Parameters(**hp)
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(
         params, lr=pms.lr, momentum=pms.momentum, weight_decay=pms.weight_decay)
 
     start_epoch = 0
-
-    for epoch in range(start_epoch, args.get('epochs')):
+    since = time.time()
+    for epoch in range(start_epoch, pms.epochs):
         print("\nepoch: {}".format(epoch + 1))
         A = time.time()
         lr_epoch = pms.lr_lambda(epoch) * pms.lr
         print("lr_epoch: {:.5f}, factor: {:.5f}".format(lr_epoch, pms.lr_lambda(epoch)))
-        iter_train = train_one_epoch(model, optimizer, d_train, device, epoch, pms)
+        iter_train, train_loss = train_one_epoch(model, optimizer, d_train, device, epoch, pms)
         A = time.time() - A
 
         B = time.time()
-        eval_output, iter_eval = evaluate(model, d_test, device, pms)
+        iter_eval, test_loss = evaluate(model, d_test, device, epoch, pms, generate=True)
         B = time.time() - B
 
         trained_epoch = epoch + 1
         print("training: {:.1f} s, evaluation: {:.1f} s".format(A, B))
-        collect_gpu_info("maskrcnn", [1 / iter_train, 1 / iter_eval])
-        # print(eval_output.get_AP())
+        if torch.cuda.is_available():
+            collect_gpu_info("maskrcnn", [1 / iter_train, 1 / iter_eval])
 
-        save_ckpt(model, optimizer, trained_epoch, pms.ckpt_path, eval_info=str(eval_output))
         # save checkpoint
         checkpoint = {"model": model.state_dict(), "optimizer": optimizer.state_dict(),
-                      "epochs": trained_epoch, "eval_output": eval_output}
+                      "epochs": trained_epoch, "losses": {'train loss': train_loss, 'test loss': test_loss}}
 
-        prefix, ext = os.path.splitext(ckpt_path)
+        prefix, ext = os.path.splitext(pms.ckpt_path)
         ckpt_path = "{}-{}{}".format(prefix, trained_epoch, ext)
         torch.save(checkpoint, ckpt_path)
 
@@ -239,5 +203,39 @@ def fit(use_cuda=usecuda, data_set=data):
     # -------------------------------------------------------------------------- #
 
     print("\ntotal time of this training: {:.1f} s".format(time.time() - since))
-    if start_epoch < args.epochs:
+    if start_epoch < pms.epochs:
         print("already trained: {} epochs\n".format(trained_epoch))
+
+
+def run(usecuda, data, hyperparams, **kwargs):
+    """
+    :param usecuda: default True
+    :param data: GeneralizedDataset(folderpath, True, filenum=1, expandmask=True)
+    :param hyperparams: {
+    'batch_size': 1,
+    'lr': 1 / 16 * 0.02,
+    'momentum': 0.9,
+    'weight_decay': 0.0001,
+    'lr_steps': [6, 7],
+    'epochs': 3,
+    'warmup_iters': 1000,
+    'print_freq': 1,
+    'iters': 10,
+    'result_path': 'G:/pycharm/pythonProject/results/model_results.pth'}
+    :param : rpn_param: {
+    'rpn_fg_iou_thresh': 0.7, 'rpn_bg_iou_thresh': 0.3,
+    'rpn_num_samples': 256, 'rpn_positive_fraction': 0.5,
+    'rpn_reg_weights': (1., 1., 1., 1.),
+    'rpn_pre_nms_top_n_train': 2000, 'rpn_pre_nms_top_n_test': 1000,
+    'rpn_post_nms_top_n_train': 2000, 'rpn_post_nms_top_n_test': 1000,
+    'rpn_nms_thresh': 0.7,}
+    :param : roihead_param: {
+    'box_fg_iou_thresh': 0.5, 'box_bg_iou_thresh': 0.5,
+    'box_num_samples': 512, 'box_positive_fraction': 0.25,
+    'box_reg_weights': (10., 10., 5., 5.),
+    'box_score_thresh': 0.1, 'box_nms_thresh': 0.6,
+    'box_num_detections': 10,}
+
+    """
+
+    fit(use_cuda=usecuda, data_set=data, hp=hyperparams, **kwargs)

@@ -20,7 +20,7 @@ class GeneralizedDataset:
     def __getitem__(self, i):
         img_id = self.ids[i]  # filename number 000-049 and index number 000-199
         image = self.get_image(img_id)
-        target = self.get_target(img_id) if self.train else {}
+        target = self.get_target(img_id) # if self.train else {}
         return image, target
 
     def __len__(self):
@@ -41,6 +41,7 @@ class GeneralizedDataset:
 
         boxes = np.load(dir_b)['arr_' + str(int(img_id[3:]))]
         masks = np.load(dir_m)['arr_' + str(int(img_id[3:]))]
+        masks = masks.astype('int')
         boxes = torch.tensor(boxes, dtype=torch.float32)
         masks = torch.tensor(masks, dtype=torch.uint8)
         if self.expandmask:
@@ -63,5 +64,5 @@ class GeneralizedDataset:
 
             masks = masks_e
 
-        target = dict(image_ids=img_id, boxes=boxes, masks=masks)
+        target = dict(image_ids=torch.tensor(int(img_id), dtype=torch.int), boxes=boxes, masks=masks)
         return target

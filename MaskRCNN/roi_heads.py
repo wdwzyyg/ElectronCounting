@@ -7,14 +7,14 @@ from MaskRCNN.utils import Matcher, BalancedPositiveNegativeSampler, roi_align
 
 
 def fastrcnn_loss(class_logit, box_regression, label, regression_target):
-    classifier_loss = F.binary_cross_entropy(class_logit, label)
-
+    # print(class_logit.size(), label.size())
+    classifier_loss = F.cross_entropy(class_logit, label)
     N, num_pos = class_logit.shape[0], regression_target.shape[0]
     box_regression = box_regression.reshape(N, -1, 4)
     box_regression, label = box_regression[:num_pos], label[:num_pos]
-    box_idx = torch.arrange(num_pos, device=label.device)
-
-    box_reg_loss = F.smooth_l1_loss(box_regression[box_idx, label], regression_target, reduction='sum') / N
+    box_idx = torch.arange(num_pos, device=label.device)
+    # print(box_regression.size(),box_idx, label.size(),regression_target.size())
+    box_reg_loss = F.smooth_l1_loss(box_regression[box_idx, 0,:], regression_target, reduction='sum') / N
 
     return classifier_loss, box_reg_loss
 
@@ -52,7 +52,7 @@ class RoIHeads(nn.Module):
         self.score_thresh = score_thresh
         self.nms_thresh = nms_thresh
         self.num_detections = num_detections
-        self.min_size = 1
+        self.min_size = 0 # boxes smaller than this will be deleted.
 
     def has_mask(self):
         if self.mask_roi_pool is None:
@@ -63,7 +63,9 @@ class RoIHeads(nn.Module):
 
     def select_training_samples(self, proposal, target):
         gt_box = target['boxes']
-        gt_label = torch.full((len(gt_box),), 1, dtype=gt_box.dtype, device=gt_box.device)
+        temp = torch.full((len(gt_box), 1), 1, dtype=gt_box.dtype, device=gt_box.device)
+        tempbg = torch.full((len(gt_box), 1), 0, dtype=gt_box.dtype, device=gt_box.device)
+        gt_label = torch.cat((tempbg, temp), dim = 1)
         proposal = torch.cat((proposal, gt_box))
 
         iou = box_iou(gt_box, proposal)
@@ -77,15 +79,18 @@ class RoIHeads(nn.Module):
         label = gt_label[matched_idx]
         num_pos = pos_idx.shape[0]
         label[num_pos:] = 0
+        # label = label[:,None]
 
         return proposal, matched_idx, label, regression_target
 
     def fastrcnn_inference(self, class_logit, box_regression, proposal, image_shape):
         N, num_classes = class_logit.shape
-
+        # print('class_logit', class_logit.size())
         device = class_logit.device
         pred_score = F.softmax(class_logit, dim=-1)
-        box_regression = box_regression.reshape(N, -1, 4)
+        box_regression = box_regression.reshape(N, -1, 4) # reshape into boxes for each class, bg first
+        # print('pred_score', pred_score.size())
+        # print('box_regression', box_regression.size())
 
         boxes = []
         labels = []
@@ -98,10 +103,11 @@ class RoIHeads(nn.Module):
             box = self.box_coder.decode(box_delta, box)
 
             box, score = process_box(box, score, image_shape, self.min_size)
-
+            print('Box after process:', box.size())
             keep = nms(box, score, self.nms_thresh)[:self.num_detections]
             box, score = box[keep], score[keep]
             label = torch.full((len(keep),), l, dtype=keep.dtype, device=device)
+            print('Box after nms:', box.size())
 
             boxes.append(box)
             labels.append(label)
@@ -119,7 +125,7 @@ class RoIHeads(nn.Module):
 
         result, losses = {}, {}
         if self.training:
-            classifier_loss, box_reg_loss = fastrcnn_loss(class_logit, box_regression, regression_target)
+            classifier_loss, box_reg_loss = fastrcnn_loss(class_logit, box_regression, label, regression_target)
             losses = dict(roi_classifier_loss=classifier_loss, roi_box_loss=box_reg_loss)
         else:
             result = self.fastrcnn_inference(class_logit, box_regression, proposal, image_shape)

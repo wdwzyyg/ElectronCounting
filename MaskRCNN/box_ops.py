@@ -77,9 +77,10 @@ class BoxCoder:
 
 
 @torch.jit.script
-def box_iou(box_a, box_b):
+def box_iou(box_a, box_b, forcecpu = False):
     """
     use torch.jit to save GPU memory
+    applied chunking
     Arguments:
         boxe_a (Tensor[N, 4])
         boxe_b (Tensor[M, 4])
@@ -88,11 +89,14 @@ def box_iou(box_a, box_b):
             IoU values for every element in box_a and box_b
     """
     print("Will compute boxes: ", box_a.size(dim=0),box_b.size(dim=0))
+    ori_device = box_a.device
+    if forcecpu:
+        box_a = box_a.cpu()
+        box_b = box_b.cpu()
     #box_a = box_a.type(torch.int16)
     #box_b = box_a.type(torch.int16)
     lt = torch.max(box_a[:, None, :2], box_b[:, :2])
     rb = torch.min(box_a[:, None, 2:], box_b[:, 2:])
-    print("max min done")
 
     # wh = (rb - lt).clamp(min=0, max=math.inf)
     # inter = wh[:, :, 0] * wh[:, :, 1]
@@ -116,8 +120,9 @@ def box_iou(box_a, box_b):
             inter / (area_a[:, None] + area_b - inter),
             torch.zeros(1, dtype=inter.dtype, device=inter.device),
         )
+    if forcecpu:
+        iou = iou.to(ori_device)
     return iou
-
 
 def process_box(box, score, image_shape, min_size):
     """
