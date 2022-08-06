@@ -114,10 +114,10 @@ class AnchorGenerator:
         dtype, device = feature.dtype, feature.device
         grid_size = tuple(feature.shape[-2:])
         stride = tuple(int(i / g) for i, g in zip(image_size, grid_size))
-        print("grid_size:", grid_size, "stride", stride)
+        # print("grid_size:", grid_size, "stride", stride)
 
         self.set_cell_anchor(dtype, device)
 
         anchor = self.cached_grid_anchor(grid_size, stride)
-        print("Generated anchors:", anchor.size(dim = 0))
+        # print("Generated anchors:", anchor.size(dim = 0))
         return anchor

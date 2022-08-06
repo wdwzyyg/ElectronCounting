@@ -88,7 +88,7 @@ def box_iou(box_a, box_b, forcecpu = False):
         iou (Tensor[N, M]): the NxM matrix containing the pairwise
             IoU values for every element in box_a and box_b
     """
-    print("Will compute boxes: ", box_a.size(dim=0),box_b.size(dim=0))
+    # print("Will compute boxes: ", box_a.size(dim=0),box_b.size(dim=0))
     ori_device = box_a.device
     if forcecpu:
         box_a = box_a.cpu()

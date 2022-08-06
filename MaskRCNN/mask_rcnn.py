@@ -127,8 +127,9 @@ class MaskRCNN(nn.Module):
         # print('image size:', image.size(), 'feature size:', feature.size())
         proposal, rpn_losses = self.rpn(feature, image_shape, target)
         result, roi_losses = self.head(feature, proposal, image_shape, target)
-
+        # auto detect if training
         if self.training:
+
             return dict(**rpn_losses, **roi_losses)
         else:
             result = self.transformer.postprocess(result, image_shape, ori_image_shape)

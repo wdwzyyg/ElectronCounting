@@ -4,6 +4,8 @@ import os
 import re
 import time
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 
 from MaskRCNN import mask_rcnn
@@ -61,12 +63,50 @@ class Meter:
         return fmtstr.format(**self.__dict__)
 
 
+def plot_train_history(checkpoint_paths):
+    """
+    plot the four loss curve for all saved check points
+    different color for different check points/ epochs
+    :param checkpoint_paths: wholes paths of the saved check points.
+    """
+    roi_box_loss,roi_classifier_loss, rpn_box_loss, rpn_objectness_loss= [],[],[],[]
+    for i, ckp in enumerate(checkpoint_paths):
+        losses = torch.load(ckp)['losses']
+        roi_box_loss.append([it['roi_box_loss'].item() for it in losses['train_loss']])
+        roi_classifier_loss.append([it['roi_classifier_loss'].item() for it in losses['train_loss']])
+        rpn_box_loss.append([it['roi_classifier_loss'].item() for it in losses['train_loss']])
+        rpn_objectness_loss.append([it['rpn_objectness_loss'].item() for it in losses['train_loss']])
+
+    num = len(roi_box_loss[0])
+    fig = plt.figure(figsize=(30, 8))
+    fig.add_subplot(141)
+    for j in range(len(roi_box_loss)):
+        plt.scatter(np.arange(num)+j*num, roi_box_loss[j], s=2, alpha=1-0.5*j/len(roi_box_loss))
+    plt.xlabel('iters')
+    plt.ylabel('roi_box_loss')
+    fig.add_subplot(142)
+    for j in range(len(roi_classifier_loss)):
+        plt.scatter(np.arange(num)+j*num, roi_classifier_loss[j], s=2, alpha=1-0.5*j/len(roi_classifier_loss))
+    plt.xlabel('iters')
+    plt.ylabel('roi_classifier_loss')
+    fig.add_subplot(143)
+    for j in range(len(rpn_box_loss)):
+        plt.scatter(np.arange(num)+j*num, rpn_box_loss[j], s=2, alpha=1-0.5*j/len(rpn_box_loss))
+    plt.xlabel('iters')
+    plt.ylabel('rpn_box_loss')
+    fig.add_subplot(144)
+    for j in range(len(rpn_objectness_loss)):
+        plt.scatter(np.arange(num)+j*num, rpn_objectness_loss[j], s=2, alpha=1-0.5*j/len(rpn_objectness_loss))
+    plt.xlabel('iters')
+    plt.ylabel('rpn_objectness_loss')
+
+
 def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
     for p in optimizer.param_groups:
         p["lr"] = param.lr_lambda(epoch) * param.lr
     train_loss = []
-    # iters = len(data_loader) if args.iters < 0 else args.iters
-    iters = len(data_loader)
+    iters = len(data_loader) if param.iters < 0 else param.iters
+    # iters = len(data_loader)
 
     t_m = Meter("total")
     m_m = Meter("model")
@@ -185,7 +225,7 @@ def fit(use_cuda, data_set, hp, **kwargs):
 
         # save checkpoint
         checkpoint = {"model": model.state_dict(), "optimizer": optimizer.state_dict(),
-                      "epochs": trained_epoch, "losses": {'train loss': train_loss, 'test loss': test_loss}}
+                      "epochs": trained_epoch, "losses": {'train_loss': train_loss, 'test_loss': test_loss}}
 
         prefix, ext = os.path.splitext(pms.ckpt_path)
         ckpt_path = "{}-{}{}".format(prefix, trained_epoch, ext)
@@ -203,6 +243,7 @@ def fit(use_cuda, data_set, hp, **kwargs):
     # -------------------------------------------------------------------------- #
 
     print("\ntotal time of this training: {:.1f} s".format(time.time() - since))
+    plot_train_history(ckpts) # plot train loss curve
     if start_epoch < pms.epochs:
         print("already trained: {} epochs\n".format(trained_epoch))
 
