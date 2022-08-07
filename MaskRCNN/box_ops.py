@@ -84,7 +84,7 @@ def box_iou(box_a, box_b, forcecpu=True):
     Arguments:
         boxe_a (Tensor[N, 4])
         boxe_b (Tensor[M, 4])
-        forcecpu: bool, calculate iou on cpu
+        forcecpu: bool, calculate iou on cpu and return iou matrix on cpu
     Returns:
         iou (Tensor[N, M]): the NxM matrix containing the pairwise
             IoU values for every element in box_a and box_b
@@ -121,8 +121,9 @@ def box_iou(box_a, box_b, forcecpu=True):
             inter / (area_a[:, None] + area_b - inter),
             torch.zeros(1, dtype=inter.dtype, device=inter.device),
         )
-    if forcecpu:
-        iou = iou.to(ori_device)
+    # if forcecpu:
+    #     iou = iou.to(ori_device)
+
     return iou
 
 def process_box(box, score, image_shape, min_size):

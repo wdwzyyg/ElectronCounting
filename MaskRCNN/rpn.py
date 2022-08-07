@@ -63,9 +63,11 @@ class RegionProposalNetwork(nn.Module):
         return proposal
 
     def compute_loss(self, objectness, pred_bbox_delta, gt_box, anchor):
+        # force to use cpu for the following two steps.
         iou = box_iou(gt_box, anchor)
         label, matched_idx = self.proposal_matcher(iou)
-
+        label = label.to(gt_box.device)
+        matched_idx = matched_idx.to(gt_box.device)
         pos_idx, neg_idx = self.fg_bg_sampler(label)
         idx = torch.cat((pos_idx, neg_idx))
         regression_target = self.box_coder.encode(gt_box[matched_idx[pos_idx]], anchor[pos_idx])
