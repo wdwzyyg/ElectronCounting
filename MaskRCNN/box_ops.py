@@ -77,13 +77,14 @@ class BoxCoder:
 
 
 @torch.jit.script
-def box_iou(box_a, box_b, forcecpu = False):
+def box_iou(box_a, box_b, forcecpu=True):
     """
     use torch.jit to save GPU memory
     applied chunking
     Arguments:
         boxe_a (Tensor[N, 4])
         boxe_b (Tensor[M, 4])
+        forcecpu: bool, calculate iou on cpu
     Returns:
         iou (Tensor[N, M]): the NxM matrix containing the pairwise
             IoU values for every element in box_a and box_b
