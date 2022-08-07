@@ -26,8 +26,9 @@ class Matcher:
 
         if self.allow_low_quality_matches:
             highest_quality = iou.max(dim=1)[0]
-            gt_pred_pairs = torch.where(iou == highest_quality[:, None])[1]
-            label[gt_pred_pairs] = 1
+            # use as less variable as possible to save gpu RAM
+            # gt_pred_pairs = torch.where(iou == highest_quality[:, None])[1]
+            label[torch.where(iou == highest_quality[:, None])[1]] = 1
 
         return label, matched_idx
 
