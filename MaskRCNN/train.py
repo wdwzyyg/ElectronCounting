@@ -12,6 +12,34 @@ from MaskRCNN import mask_rcnn
 from MaskRCNN.gpu import collect_gpu_info
 
 
+class Maskrcnn_param:
+    def __init__(self, rpn_fg_iou_thresh, rpn_bg_iou_thresh, rpn_num_samples, rpn_positive_fraction, rpn_reg_weights,
+                 rpn_pre_nms_top_n_train, rpn_pre_nms_top_n_test, rpn_post_nms_top_n_train, rpn_post_nms_top_n_test,
+                 rpn_nms_thresh,
+                 box_fg_iou_thresh, box_bg_iou_thresh, box_num_samples, box_positive_fraction, box_reg_weights,
+                 box_score_thresh, box_nms_thresh, box_num_detections):
+        # rpn parameters
+        self.rpn_fg_iou_thresh = rpn_fg_iou_thresh
+        self.rpn_bg_iou_thresh = rpn_bg_iou_thresh
+        self.rpn_num_samples = rpn_num_samples
+        self.rpn_positive_fraction = rpn_positive_fraction
+        self.rpn_reg_weights = rpn_reg_weights
+        self.rpn_pre_nms_top_n_train = rpn_pre_nms_top_n_train
+        self.rpn_pre_nms_top_n_test = rpn_pre_nms_top_n_test
+        self.rpn_post_nms_top_n_train = rpn_post_nms_top_n_train
+        self.rpn_post_nms_top_n_test = rpn_post_nms_top_n_test
+        self.rpn_nms_thresh = rpn_nms_thresh
+        # roi head parameters
+        self.box_fg_iou_thresh = box_fg_iou_thresh
+        self.box_bg_iou_thresh = box_bg_iou_thresh
+        self.box_num_samples = box_num_samples
+        self.box_positive_fraction = box_positive_fraction
+        self.box_reg_weights = box_reg_weights
+        self.box_score_thresh = box_score_thresh
+        self.box_nms_thresh = box_nms_thresh
+        self.box_num_detections = box_num_detections
+
+
 class Parameters:
     def __init__(self, batch_size, lr, momentum, weight_decay, lr_steps, epochs, warmup_iters, print_freq, iters,
                  **kwargs):
@@ -69,7 +97,7 @@ def plot_train_history(checkpoint_paths):
     different color for different check points/ epochs
     :param checkpoint_paths: wholes paths of the saved check points.
     """
-    roi_box_loss,roi_classifier_loss, rpn_box_loss, rpn_objectness_loss= [],[],[],[]
+    roi_box_loss, roi_classifier_loss, rpn_box_loss, rpn_objectness_loss = [], [], [], []
     for i, ckp in enumerate(checkpoint_paths):
         losses = torch.load(ckp)['losses']
         roi_box_loss.append([it['roi_box_loss'].item() for it in losses['train_loss']])
@@ -81,22 +109,22 @@ def plot_train_history(checkpoint_paths):
     fig = plt.figure(figsize=(30, 8))
     fig.add_subplot(141)
     for j in range(len(roi_box_loss)):
-        plt.scatter(np.arange(num)+j*num, roi_box_loss[j], s=2, alpha=1-0.5*j/len(roi_box_loss))
+        plt.scatter(np.arange(num) + j * num, roi_box_loss[j], s=2, alpha=1 - 0.5 * j / len(roi_box_loss))
     plt.xlabel('iters')
     plt.ylabel('roi_box_loss')
     fig.add_subplot(142)
     for j in range(len(roi_classifier_loss)):
-        plt.scatter(np.arange(num)+j*num, roi_classifier_loss[j], s=2, alpha=1-0.5*j/len(roi_classifier_loss))
+        plt.scatter(np.arange(num) + j * num, roi_classifier_loss[j], s=2, alpha=1 - 0.5 * j / len(roi_classifier_loss))
     plt.xlabel('iters')
     plt.ylabel('roi_classifier_loss')
     fig.add_subplot(143)
     for j in range(len(rpn_box_loss)):
-        plt.scatter(np.arange(num)+j*num, rpn_box_loss[j], s=2, alpha=1-0.5*j/len(rpn_box_loss))
+        plt.scatter(np.arange(num) + j * num, rpn_box_loss[j], s=2, alpha=1 - 0.5 * j / len(rpn_box_loss))
     plt.xlabel('iters')
     plt.ylabel('rpn_box_loss')
     fig.add_subplot(144)
     for j in range(len(rpn_objectness_loss)):
-        plt.scatter(np.arange(num)+j*num, rpn_objectness_loss[j], s=2, alpha=1-0.5*j/len(rpn_objectness_loss))
+        plt.scatter(np.arange(num) + j * num, rpn_objectness_loss[j], s=2, alpha=1 - 0.5 * j / len(rpn_objectness_loss))
     plt.xlabel('iters')
     plt.ylabel('rpn_objectness_loss')
 
@@ -191,16 +219,45 @@ def evaluate(model, data_loader, device, epoch, arg, generate=True):
     return A / iters, test_loss
 
 
-def fit(use_cuda, data_set, hp, **kwargs):
+def fit(use_cuda, data_set, train_hp, mask_hp):
+    """
+    :param use_cuda: default True
+    :param data_set: GeneralizedDataset(folderpath, True, filenum=1, expandmask=True)
+    :param train_hp: {
+    'batch_size': 1,
+    'lr': 1 / 16 * 0.02,
+    'momentum': 0.9,
+    'weight_decay': 0.0001,
+    'lr_steps': [6, 7],
+    'epochs': 3,
+    'warmup_iters': 1000,
+    'print_freq': 1,
+    'iters': 10,
+    'result_path': 'G:/pycharm/pythonProject/results/model_results.pth'}
+    :param : mask_hp: {
+    'rpn_fg_iou_thresh': 0.7, 'rpn_bg_iou_thresh': 0.3,
+    'rpn_num_samples': 256, 'rpn_positive_fraction': 0.5,
+    'rpn_reg_weights': (1., 1., 1., 1.),
+    'rpn_pre_nms_top_n_train': 2000, 'rpn_pre_nms_top_n_test': 1000,
+    'rpn_post_nms_top_n_train': 2000, 'rpn_post_nms_top_n_test': 1000,
+    'rpn_nms_thresh': 0.7,
+    'box_fg_iou_thresh': 0.5, 'box_bg_iou_thresh': 0.5,
+    'box_num_samples': 512, 'box_positive_fraction': 0.25,
+    'box_reg_weights': (10., 10., 5., 5.),
+    'box_score_thresh': 0.1, 'box_nms_thresh': 0.6,
+    'box_num_detections': 10,}
+
+    """
     device = torch.device("cuda" if torch.cuda.is_available() and use_cuda else "cpu")
     indices = torch.randperm(len(data_set)).tolist()
     d_train, d_test = torch.utils.data.random_split(data_set, [int(len(data_set) / 2), int(len(data_set) / 2)])
-    model = mask_rcnn.maskrcnn_2conv(True, num_classes=2, rpn_param=kwargs.get('rpn_param', None),
-                                     roihead_param=kwargs.get('rpn_param', None),
+    maskrcnn_param = Maskrcnn_param(**mask_hp)
+    model = mask_rcnn.maskrcnn_2conv(True, num_classes=2, setting=maskrcnn_param,
                                      weights_path='./modelweights/CNN_smoothl1.tar').to(device)
 
-    pms = Parameters(**hp)
+    pms = Parameters(**train_hp)
     params = [p for p in model.parameters() if p.requires_grad]
+    # print(params)
     optimizer = torch.optim.SGD(
         params, lr=pms.lr, momentum=pms.momentum, weight_decay=pms.weight_decay)
 
@@ -243,40 +300,6 @@ def fit(use_cuda, data_set, hp, **kwargs):
     # -------------------------------------------------------------------------- #
 
     print("\ntotal time of this training: {:.1f} s".format(time.time() - since))
-    plot_train_history(ckpts) # plot train loss curve
+    plot_train_history(ckpts)  # plot train loss curve
     if start_epoch < pms.epochs:
         print("already trained: {} epochs\n".format(trained_epoch))
-
-
-def run(usecuda, data, hyperparams, **kwargs):
-    """
-    :param usecuda: default True
-    :param data: GeneralizedDataset(folderpath, True, filenum=1, expandmask=True)
-    :param hyperparams: {
-    'batch_size': 1,
-    'lr': 1 / 16 * 0.02,
-    'momentum': 0.9,
-    'weight_decay': 0.0001,
-    'lr_steps': [6, 7],
-    'epochs': 3,
-    'warmup_iters': 1000,
-    'print_freq': 1,
-    'iters': 10,
-    'result_path': 'G:/pycharm/pythonProject/results/model_results.pth'}
-    :param : rpn_param: {
-    'rpn_fg_iou_thresh': 0.7, 'rpn_bg_iou_thresh': 0.3,
-    'rpn_num_samples': 256, 'rpn_positive_fraction': 0.5,
-    'rpn_reg_weights': (1., 1., 1., 1.),
-    'rpn_pre_nms_top_n_train': 2000, 'rpn_pre_nms_top_n_test': 1000,
-    'rpn_post_nms_top_n_train': 2000, 'rpn_post_nms_top_n_test': 1000,
-    'rpn_nms_thresh': 0.7,}
-    :param : roihead_param: {
-    'box_fg_iou_thresh': 0.5, 'box_bg_iou_thresh': 0.5,
-    'box_num_samples': 512, 'box_positive_fraction': 0.25,
-    'box_reg_weights': (10., 10., 5., 5.),
-    'box_score_thresh': 0.1, 'box_nms_thresh': 0.6,
-    'box_num_detections': 10,}
-
-    """
-
-    fit(use_cuda=usecuda, data_set=data, hp=hyperparams, **kwargs)

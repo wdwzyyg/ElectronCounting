@@ -70,7 +70,7 @@ class MaskRCNN(nn.Module):
 
     """
 
-    def __init__(self, backbone, num_classes, **kwargs):
+    def __init__(self, backbone, num_classes, setting):
         super().__init__()
         self.backbone = backbone
         out_channels = backbone.out_channels
@@ -82,14 +82,16 @@ class MaskRCNN(nn.Module):
         rpn_anchor_generator = AnchorGenerator(anchor_sizes, anchor_ratios)
         rpn_head = RPNHead(out_channels, num_anchors)
 
-        rpn_pre_nms_top_n = dict(training=kwargs.get('rpn_pre_nms_top_n_train'), testing=kwargs.get('rpn_pre_nms_top_n_test'))
-        rpn_post_nms_top_n = dict(training=kwargs.get('rpn_post_nms_top_n_train'), testing=kwargs.get('rpn_post_nms_top_n_test'))
+        rpn_pre_nms_top_n = dict(training=setting.rpn_pre_nms_top_n_train,
+                                 testing=setting.rpn_pre_nms_top_n_test)
+        rpn_post_nms_top_n = dict(training=setting.rpn_post_nms_top_n_train,
+                                  testing=setting.rpn_post_nms_top_n_test)
         self.rpn = RegionProposalNetwork(
             rpn_anchor_generator, rpn_head,
-            kwargs.get('rpn_fg_iou_thresh'), kwargs.get('rpn_bg_iou_thresh'),
-            kwargs.get('rpn_num_samples'), kwargs.get('rpn_positive_fraction'),
-            kwargs.get('rpn_reg_weights'),
-            rpn_pre_nms_top_n, rpn_post_nms_top_n, kwargs.get('rpn_nms_thresh'))
+            setting.rpn_fg_iou_thresh, setting.rpn_bg_iou_thresh,
+            setting.rpn_num_samples, setting.rpn_positive_fraction,
+            setting.rpn_reg_weights,
+            rpn_pre_nms_top_n, rpn_post_nms_top_n, setting.rpn_nms_thresh)
 
         # ------------ RoIHeads --------------------------
         box_roi_pool = RoIAlign(output_size=(7, 7), sampling_ratio=2)
@@ -101,10 +103,10 @@ class MaskRCNN(nn.Module):
 
         self.head = RoIHeads(
             box_roi_pool, box_predictor,
-            kwargs.get('box_fg_iou_thresh'), kwargs.get('box_bg_iou_thresh'),
-            kwargs.get('box_num_samples'), kwargs.get('box_positive_fraction'),
-            kwargs.get('box_reg_weights'),
-            kwargs.get('box_score_thresh'),kwargs.get( 'box_nms_thresh'), kwargs.get('box_num_detections'))
+            setting.box_fg_iou_thresh, setting.box_bg_iou_thresh,
+            setting.box_num_samples, setting.box_positive_fraction,
+            setting.box_reg_weights,
+            setting.box_score_thresh, setting.box_nms_thresh, setting.box_num_detections)
 
         # self.head.mask_roi_pool = RoIAlign(output_size=(14, 14), sampling_ratio=2)
 
@@ -197,7 +199,7 @@ class CovBackbone(nn.Module):
         return x
 
 
-def maskrcnn_2conv(pretrained, num_classes, weights_path, **kwargs):
+def maskrcnn_2conv(pretrained, num_classes, weights_path, setting):
     """
     Constructs a Mask R-CNN model with a ResNet-50 backbone.
 
@@ -205,27 +207,12 @@ def maskrcnn_2conv(pretrained, num_classes, weights_path, **kwargs):
         pretrained (bool): If True, returns a model with pre-trained feature extraction layer.
         num_classes (int): number of classes (including the background).
         weights_path(directory str): the source model path for the feature extraction layers
+        setting: class Maskrcnn_param of all the model parameters
     """
 
     backbone = CovBackbone()
-    rpn_default = {
-        'rpn_fg_iou_thresh': 0.7, 'rpn_bg_iou_thresh': 0.3,
-        'rpn_num_samples': 256, 'rpn_positive_fraction': 0.5,
-        'rpn_reg_weights': (1., 1., 1., 1.),
-        'rpn_pre_nms_top_n_train': 2000, 'rpn_pre_nms_top_n_test': 1000,
-        'rpn_post_nms_top_n_train': 2000, 'rpn_post_nms_top_n_test': 1000,
-        'rpn_nms_thresh': 0.7, }
-    roihead_default = {
-        'box_fg_iou_thresh': 0.5, 'box_bg_iou_thresh': 0.5,
-        'box_num_samples': 512, 'box_positive_fraction': 0.25,
-        'box_reg_weights': (10., 10., 5., 5.),
-        'box_score_thresh': 0.1, 'box_nms_thresh': 0.6,
-        'box_num_detections': 10, }
-    rpn_param = kwargs.get('rpn_param') if kwargs.get('rpn_param') else rpn_default
-    roihead_param = kwargs.get('roihead_param') if kwargs.get('roihead_param') else roihead_default
 
-
-    model = MaskRCNN(backbone, num_classes, **rpn_param, **roihead_param)
+    model = MaskRCNN(backbone, num_classes, setting=setting)
 
     if pretrained:
 
