@@ -89,8 +89,8 @@ class AnchorGenerator:
 
     def grid_anchor(self, grid_size, stride):
         dtype, device = self.cell_anchor.dtype, self.cell_anchor.device
-        shift_x = torch.arange(0, grid_size[1], dtype=dtype, device=device) * stride[1]
-        shift_y = torch.arange(0, grid_size[0], dtype=dtype, device=device) * stride[0]
+        shift_x = torch.arange(0, grid_size[1]/stride[1], dtype=dtype, device=device) * stride[1]
+        shift_y = torch.arange(0, grid_size[0]/stride[0], dtype=dtype, device=device) * stride[0]
 
         y, x = torch.meshgrid(shift_y, shift_x)
         x = x.reshape(-1)
@@ -115,7 +115,7 @@ class AnchorGenerator:
         dtype, device = feature.dtype, feature.device
         grid_size = tuple(feature.shape[-2:])
         stride = tuple(int(2 * i / g) for i, g in zip(image_size, grid_size))
-        # print("grid_size:", grid_size, "stride", stride)
+        print("grid_size:", grid_size, "stride", stride)
 
         self.set_cell_anchor(dtype, device)
 
