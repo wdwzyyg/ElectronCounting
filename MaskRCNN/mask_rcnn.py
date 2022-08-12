@@ -87,7 +87,7 @@ class MaskRCNN(nn.Module):
         rpn_post_nms_top_n = dict(training=setting.rpn_post_nms_top_n_train,
                                   testing=setting.rpn_post_nms_top_n_test)
         self.rpn = RegionProposalNetwork(
-            rpn_anchor_generator, rpn_head,
+            rpn_anchor_generator, rpn_head, setting.forcecpu,
             setting.rpn_fg_iou_thresh, setting.rpn_bg_iou_thresh,
             setting.rpn_num_samples, setting.rpn_positive_fraction,
             setting.rpn_reg_weights,

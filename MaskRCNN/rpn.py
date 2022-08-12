@@ -25,7 +25,7 @@ class RPNHead(nn.Module):
 
 
 class RegionProposalNetwork(nn.Module):
-    def __init__(self, anchor_generator, head,
+    def __init__(self, anchor_generator, head, forcecpu,
                  fg_iou_thresh, bg_iou_thresh,
                  num_samples, positive_fraction,
                  reg_weights,
@@ -34,7 +34,7 @@ class RegionProposalNetwork(nn.Module):
 
         self.anchor_generator = anchor_generator
         self.head = head
-
+        self.forcecpu = forcecpu
         self.proposal_matcher = Matcher(fg_iou_thresh, bg_iou_thresh, allow_low_quality_matches=True)
         self.fg_bg_sampler = BalancedPositiveNegativeSampler(num_samples, positive_fraction)
         self.box_coder = BoxCoder(reg_weights)
@@ -62,9 +62,9 @@ class RegionProposalNetwork(nn.Module):
         proposal = proposal[keep]
         return proposal
 
-    def compute_loss(self, objectness, pred_bbox_delta, gt_box, anchor):
+    def compute_loss(self, objectness, pred_bbox_delta, gt_box, anchor, **kwargs):
         # force to use cpu for the following two steps.
-        iou = box_iou(gt_box, anchor)
+        iou = box_iou(gt_box, anchor, forcecpu=kwargs.get('forcecpu', False))
         label, matched_idx = self.proposal_matcher(iou)
         label = label.to(gt_box.device)
         matched_idx = matched_idx.to(gt_box.device)
@@ -88,7 +88,7 @@ class RegionProposalNetwork(nn.Module):
         # print(pred_bbox_delta.size())
         proposal = self.create_proposal(anchor, objectness.detach(), pred_bbox_delta.detach(), image_shape)
         if self.training:
-            objectness_loss, box_loss = self.compute_loss(objectness, pred_bbox_delta, gt_box, anchor)
+            objectness_loss, box_loss = self.compute_loss(objectness, pred_bbox_delta, gt_box, anchor, forcecpu=self.forcecpu)
             return proposal, dict(rpn_objectness_loss=objectness_loss, rpn_box_loss=box_loss)
 
         return proposal, {}

@@ -13,12 +13,13 @@ from MaskRCNN.gpu import collect_gpu_info
 
 
 class Maskrcnn_param:
-    def __init__(self, rpn_fg_iou_thresh, rpn_bg_iou_thresh, rpn_num_samples, rpn_positive_fraction, rpn_reg_weights,
+    def __init__(self, forcecpu, rpn_fg_iou_thresh, rpn_bg_iou_thresh, rpn_num_samples, rpn_positive_fraction, rpn_reg_weights,
                  rpn_pre_nms_top_n_train, rpn_pre_nms_top_n_test, rpn_post_nms_top_n_train, rpn_post_nms_top_n_test,
                  rpn_nms_thresh,
                  box_fg_iou_thresh, box_bg_iou_thresh, box_num_samples, box_positive_fraction, box_reg_weights,
                  box_score_thresh, box_nms_thresh, box_num_detections):
         # rpn parameters
+        self.forcecpu = forcecpu
         self.rpn_fg_iou_thresh = rpn_fg_iou_thresh
         self.rpn_bg_iou_thresh = rpn_bg_iou_thresh
         self.rpn_num_samples = rpn_num_samples

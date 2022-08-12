@@ -21,7 +21,7 @@ print('total number of test images: ', len(dataset_test))
 use_gpu = False#True
 proposal_params = {'min_size': 8,'nms_thresh': 0.5}
 model = mask_rcnn.maskrcnn_2conv(True, num_classes=2, weights_path='./modelweights/CNN_smoothl1.tar')
-w = torch.load(weighpath, map_location=torch.device('cpu'))
+w = torch.load(weightpath, map_location=torch.device('cpu'))
 model.load_state_dict(w)
 
 if use_gpu:
