@@ -62,6 +62,9 @@ class RoIHeads(nn.Module):
         return True
 
     def select_training_samples(self, proposal, target):
+        """
+        Assign the ground truth bounding boxes to anchors.
+        """
         gt_box = target['boxes']
         temp = torch.full((len(gt_box), 1), 1, dtype=gt_box.dtype, device=gt_box.device)
         tempbg = torch.full((len(gt_box), 1), 0, dtype=gt_box.dtype, device=gt_box.device)

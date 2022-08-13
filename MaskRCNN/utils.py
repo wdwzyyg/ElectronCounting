@@ -120,5 +120,5 @@ class AnchorGenerator:
         self.set_cell_anchor(dtype, device)
 
         anchor = self.cached_grid_anchor(grid_size, stride)
-        print("Generated anchors:", anchor.size(dim = 0))
+        # print("Generated anchors:", anchor.size(dim = 0))
         return anchor

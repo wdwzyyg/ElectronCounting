@@ -112,7 +112,7 @@ def box_iou(box_a, box_b, forcecpu=True):
     for i in range(0, N, 20):
 
         area_a = torch.prod(box_a[i:min(i+20, N), 2:] - box_a[i:min(i+20, N), :2], 1)
-        wh = (rb[i:min(i+20, N), :] - lt[i:min(i+20, N), :]).clamp(min=0)  # [<=20,M,2]
+        wh = (rb[i:min(i+20, N), :] - lt[i:min(i+20, N), :]).clamp(min=0)  # [<=20,M,2] # right bottom and left top
         inter = wh[:, :, 0] * wh[:, :, 1]  # [<=20,M]
 
         # handle empty boxes
@@ -125,6 +125,7 @@ def box_iou(box_a, box_b, forcecpu=True):
     #     iou = iou.to(ori_device)
 
     return iou
+
 
 def process_box(box, score, image_shape, min_size):
     """
