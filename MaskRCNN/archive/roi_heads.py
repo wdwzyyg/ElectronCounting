@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
+from MaskRCNN.box_ops import BoxCoder, box_iou, process_box, nms
 from torch import nn
 
-from MaskRCNN.box_ops import BoxCoder, box_iou, process_box, nms
 from MaskRCNN.utils import Matcher, BalancedPositiveNegativeSampler, roi_align
 
 

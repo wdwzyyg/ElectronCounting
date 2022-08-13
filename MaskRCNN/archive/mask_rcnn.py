@@ -2,12 +2,12 @@ from collections import OrderedDict
 
 import torch
 import torch.nn.functional as F
-from torch import nn
-
 from MaskRCNN.pooler import RoIAlign
 from MaskRCNN.roi_heads import RoIHeads
 from MaskRCNN.rpn import RPNHead, RegionProposalNetwork
 from MaskRCNN.transform import Transformer
+from torch import nn
+
 from MaskRCNN.utils import AnchorGenerator
 
 
@@ -116,25 +116,27 @@ class MaskRCNN(nn.Module):
 
         # ------------ Transformer --------------------------
         self.transformer = Transformer(
-            min_size=800, max_size=1333,
+            min_size=256, max_size=256,
             image_mean=[0.485, 0.456, 0.406],
-            image_std=[0.229, 0.224, 0.225])
+            image_std=[0.229, 0.224, 0.225],
+            size_divisible=32)
 
-    def forward(self, image, target=None):
-        ori_image_shape = image.shape[-2:]
+    def forward(self, images, targets=None):
+        # reference: torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True)
 
-        image, target = self.transformer(image, target)
-        image_shape = image.shape[-2:]
-        feature = self.backbone(image)
-        # print('image size:', image.size(), 'feature size:', feature.size())
-        proposal, rpn_losses = self.rpn(feature, image_shape, target)
-        result, roi_losses = self.head(feature, proposal, image_shape, target)
+        # ori_image_shape = image.shape[-2:]
+        images, targets= self.transformer(images, targets)
+        image_shape = images[0].shape[-2:]
+        features = self.backbone(images.tensors)
+        if isinstance(features, torch.Tensor):
+            features = OrderedDict([("0", features)])
+        proposal, rpn_losses = self.rpn(features, image_shape, targets)
+        result, roi_losses = self.head(features, proposal, image_shape, targets)
         # auto detect if training
         if self.training:
-
             return dict(**rpn_losses, **roi_losses)
         else:
-            result = self.transformer.postprocess(result, image_shape, ori_image_shape)
+            # result = self.transformer.postprocess(result, image_shape, ori_image_shape)
             return result, dict(**rpn_losses, **roi_losses)
 
 
