@@ -87,6 +87,11 @@ class RoIHeads(nn.Module):
         return proposal, matched_idx, label, regression_target
 
     def fastrcnn_inference(self, class_logit, box_regression, proposal, image_shape):
+
+        # when the FastRCNN is not trained well and predict no box, return empty test results
+        if box_regression.size()[0]==0:
+            return dict(boxes=torch.cat(boxes), labels=torch.cat(labels), scores=torch.cat(scores))
+
         N, num_classes = class_logit.shape
         # print('class_logit', class_logit.size())
         device = class_logit.device
