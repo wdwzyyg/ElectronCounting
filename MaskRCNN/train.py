@@ -54,10 +54,10 @@ def plot_train_history(checkpoint_paths):
     roi_box_loss, roi_classifier_loss, rpn_box_loss, rpn_objectness_loss = [], [], [], []
     for i, ckp in enumerate(checkpoint_paths):
         losses = torch.load(ckp)['losses']
-        roi_box_loss.append([it['roi_box_loss'].item() for it in losses['train_loss']])
-        roi_classifier_loss.append([it['roi_classifier_loss'].item() for it in losses['train_loss']])
-        rpn_box_loss.append([it['roi_classifier_loss'].item() for it in losses['train_loss']])
-        rpn_objectness_loss.append([it['rpn_objectness_loss'].item() for it in losses['train_loss']])
+        roi_box_loss.append([it['loss_box_reg'].item() for it in losses['train_loss']])
+        roi_classifier_loss.append([it['loss_classifier'].item() for it in losses['train_loss']])
+        rpn_box_loss.append([it['loss_rpn_box_reg'].item() for it in losses['train_loss']])
+        rpn_objectness_loss.append([it['loss_objectness'].item() for it in losses['train_loss']])
 
     num = len(roi_box_loss[0])
     fig = plt.figure(figsize=(30, 8))
@@ -135,7 +135,7 @@ def evaluate(model, data_loader, device, epoch, arg, generate=True):
     results = []
     model.eval()
 
-    for images, targets in enumerate(data_loader):
+    for i, (images, targets) in enumerate(data_loader):
         images = list(img.to(device) for img in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         outputs = model(images)

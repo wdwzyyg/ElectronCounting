@@ -30,7 +30,7 @@ class GeneralizedDataset:
         path = self.data_dir + img_id[:3] + '_img.npz'
         image = np.load(path)['arr_' + str(int(img_id[3:]))]
         image = torch.tensor(image, dtype=torch.float32)
-        image = image[None, :]  # add channel dimention [C, H, W]
+        image = image[None, :]  # add channel dimension [C, H, W]
         return image
 
     def get_target(self, img_id):
@@ -43,6 +43,8 @@ class GeneralizedDataset:
         masks = np.load(dir_m)['arr_' + str(int(img_id[3:]))]
         masks = masks.astype('int')
         boxes = torch.tensor(boxes, dtype=torch.float32)
+        labels = torch.ones(size=(boxes.size()[0], 1), dtype=torch.int64).flatten()  # required to be int64 and 1D
+        # labels = torch.cat((torch.zeros_like(labels), labels), dim=1)  # [0,1] for each box
         # in the original dataset, for box of one pixel, xmin=xmax, ymin=ymax, so add 1 to max to redefine.
         boxes[:, 2] = boxes[:, 2] + 1
         boxes[:, 3] = boxes[:, 3] + 1
@@ -67,5 +69,5 @@ class GeneralizedDataset:
 
             masks = masks_e
 
-        target = dict(image_ids=torch.tensor(int(img_id), dtype=torch.int), boxes=boxes, masks=masks)
+        target = dict(image_ids=torch.tensor(int(img_id), dtype=torch.int), boxes=boxes, masks=masks, labels=labels)
         return target
