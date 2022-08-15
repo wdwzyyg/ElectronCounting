@@ -3,7 +3,6 @@ import glob
 import math
 import os
 import re
-import sys
 import time
 
 import matplotlib.pyplot as plt
@@ -88,6 +87,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
         p["lr"] = param.lr_lambda(epoch) * param.lr
     train_loss = []
     iters = len(data_loader) if param.iters < 0 else param.iters
+    print('iters per epoch:', iters)
     # iters = len(data_loader)
 
     model.train()
@@ -112,7 +112,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
 
         if not math.isfinite(total_loss.item()):
             print("Loss is {}, stopping training".format(total_loss.item()))
-            sys.exit(1)
+            # sys.exit(1)
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()

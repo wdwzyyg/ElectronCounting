@@ -103,7 +103,6 @@ def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
     stage_indices = [0] + [
         i for i, b in enumerate(backbone)
         if getattr(b, "_is_cn", False)] + [len(backbone) - 1]
-    print(stage_indices)
     num_stages = len(stage_indices)
     trainable_layers = 0
 
