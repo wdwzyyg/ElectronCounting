@@ -7,7 +7,6 @@ from torch import nn
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.backbone_utils import BackboneWithFPN
 # from MaskRCNN.transform import CustomTransform # cannot use custom transform.
-from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from torchvision.ops import MultiScaleRoIAlign
 
 
@@ -123,12 +122,11 @@ def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
 
     in_channels_list = [backbone[stage_indices[i]].out_channels for i in returned_layers]
     backboneFPN = BackboneWithFPN(backbone, return_layers, in_channels_list, out_channels, extra_blocks=None)
-    transform = GeneralizedRCNNTransform(min_size=256, max_size=256, image_mean=None, image_std=None, fixed_size=(256,256), _skip_resize=True)
+    # transform = GeneralizedRCNNTransform(min_size=256, max_size=256, image_mean=None, image_std=None, fixed_size=(256,256), _skip_resize=True)
     # _skip_resize=True does not take effect
     anchor_generator = AnchorGenerator(sizes=(1, 2, 4), aspect_ratios=(0.5, 1, 2))
     box_roi_pool = MultiScaleRoIAlign(featmap_names=["0"], output_size=7, sampling_ratio=2)
     # anchor_generator = AnchorGenerator(sizes=(1, 2, 3, 4), aspect_ratios=(0.25, 0.5, 1, 2))
-    # box_roi_pool = MultiScaleRoIAlign(featmap_names=["depth_conv", "point_conv", "depth_conv2", "point_conv2"], output_size=7, sampling_ratio=2)
 
     resolution = box_roi_pool.output_size[0]  # 7
     representation_size = 1024
@@ -138,7 +136,7 @@ def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
 
     # load an instance segmentation model pre-trained on COCO
     model = torchvision.models.detection.FasterRCNN(backbone=backboneFPN, num_classes=num_classes,
-                                                    transform=transform, rpn_anchor_generator=anchor_generator,
+                                                    rpn_anchor_generator=anchor_generator,
                                                     box_head=box_head,
                                                     **setting_dict)
 
