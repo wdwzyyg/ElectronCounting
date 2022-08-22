@@ -3,6 +3,10 @@ import torch
 import torch.nn.functional as F
 
 
+def map01(mat):
+    return (mat - mat.min()) / (mat.max() - mat.min())
+
+
 class GeneralizedDataset:
     """
     Returns:
@@ -29,6 +33,7 @@ class GeneralizedDataset:
     def get_image(self, img_id):
         path = self.data_dir + img_id[:3] + '_img.npz'
         image = np.load(path)['arr_' + str(int(img_id[3:]))]
+        image = map01(image)
         image = torch.tensor(image, dtype=torch.float32)
         image = image[None, :]  # add channel dimension [C, H, W]
         return image
