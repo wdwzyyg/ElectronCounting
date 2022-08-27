@@ -9,7 +9,7 @@ from torchvision.models.detection.backbone_utils import BackboneWithFPN
 # from MaskRCNN.transform import CustomTransform # cannot use custom transform.
 from torchvision.ops import MultiScaleRoIAlign
 
-from fcn import TinySegResNet
+from MaskRCNN.fcn import TinySegResNet
 
 
 class channellayer(nn.Module):

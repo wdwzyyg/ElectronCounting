@@ -1,6 +1,6 @@
 from typing import List
 
-from blocks import *
+from MaskRCNN.blocks import *
 
 
 class TinySegResNet(nn.Module):
