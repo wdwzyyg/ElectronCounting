@@ -9,6 +9,8 @@ from torchvision.models.detection.backbone_utils import BackboneWithFPN
 # from MaskRCNN.transform import CustomTransform # cannot use custom transform.
 from torchvision.ops import MultiScaleRoIAlign
 
+from fcn import TinySegResNet
+
 
 class channellayer(nn.Module):
     """ Custom layer to delete two channels in input """
@@ -46,6 +48,22 @@ class CovBackbone(nn.Sequential):
         return x
 
 
+class FCNBackbone(nn.Sequential):
+    def __init__(self, nb_filters: int = 64):
+        super(FCNBackbone, self).__init__()
+        self.channel2one = channellayer()
+        self.fcn = TinySegResNet()
+        features: List[nn.Module] = [self.channel2one] + list(self.fcn.c1.block.children())[:1] + list(self.fcn.bn.res_module[0].children())[:3]
+
+        # make it nn.Sequential
+        self.features = nn.Sequential(*features)
+
+    def forward(self, x):
+        x = self.channel2one(x)
+        x = TinySegResNet(x)
+        return x
+
+
 class TwoMLPHead(nn.Module):
     """
     Standard heads for FPN-based models
@@ -70,6 +88,55 @@ class TwoMLPHead(nn.Module):
         return x
 
 
+def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
+    """
+    Constructs a Mask R-CNN model with a ResNet-50 backbone.
+
+    Arguments:
+        pretrained (bool): If True, returns a model with pre-trained feature extraction layer.
+        num_classes (int): number of classes (including the background).
+        weights_path(directory str): the source model path for the feature extraction layers
+        setting_dict: dict of all the model parameters
+    """
+
+    backbone = FCNBackbone()
+
+    if pretrained:
+        model_state_dict = torch.load(weights_path, map_location=torch.device('cpu'))
+        backbone.fcn.load_state_dict(model_state_dict['weights'])
+
+    backbone = backbone.features
+
+    backbone.out_channels = 64
+    stage_indices = [1, 2] # the three conv layers
+    num_stages = len(stage_indices)
+
+    out_channels = 64
+    returned_layers = [0, 1]
+    assert min(returned_layers) >= 0 and max(returned_layers) < num_stages
+    return_layers = {f'{stage_indices[k]}': str(v) for v, k in enumerate(returned_layers)}
+    in_channels_list = [backbone[stage_indices[i]].out_channels for i in returned_layers]
+
+    backboneFPN = BackboneWithFPN(backbone, return_layers, in_channels_list, out_channels, extra_blocks=None)
+
+    anchor_generator = AnchorGenerator(sizes=((1, 2, 4), )*3, aspect_ratios=((0.5, 1, 2), )*3)
+    box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "pool"], output_size=7, sampling_ratio=2)
+
+    resolution = box_roi_pool.output_size[0]  # 7
+    representation_size = 1024
+    out_channels = backbone.out_channels
+    box_head = TwoMLPHead(out_channels * resolution ** 2, representation_size)  # (2*7^2, 1024)
+    # box_predictor = FastRCNNPredictor(representation_size, num_classes=None)
+
+    # load an instance segmentation model pre-trained on COCO
+    model = torchvision.models.detection.FasterRCNN(backbone=backboneFPN, num_classes=num_classes,
+                                                    rpn_anchor_generator=anchor_generator,
+                                                    box_head=box_head, box_roi_pool=box_roi_pool,
+                                                    **setting_dict)
+
+    return model
+
+
 def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
     """
     Constructs a Mask R-CNN model with a ResNet-50 backbone.
@@ -78,7 +145,7 @@ def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
         pretrained (bool): If True, returns a model with pre-trained feature extraction layer.
         num_classes (int): number of classes (including the background).
         weights_path(directory str): the source model path for the feature extraction layers
-        seting_dict: dict of all the model parameters
+        setting_dict: dict of all the model parameters
     """
 
     backbone = CovBackbone()
@@ -103,12 +170,12 @@ def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
         i for i, b in enumerate(backbone)
         if getattr(b, "_is_cn", False)] + [len(backbone) - 1]
     num_stages = len(stage_indices)
-    trainable_layers = 0
-
-    if trainable_layers == 0:
-        freeze_before = num_stages
-    else:
-        freeze_before = stage_indices[num_stages - trainable_layers]
+    # trainable_layers = 0
+    #
+    # if trainable_layers == 0:
+    #     freeze_before = num_stages
+    # else:
+    #     freeze_before = stage_indices[num_stages - trainable_layers]
 
     # for b in backbone[:freeze_before]:
     #     for parameter in b.parameters():
@@ -122,7 +189,9 @@ def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
 
     in_channels_list = [backbone[stage_indices[i]].out_channels for i in returned_layers]
     backboneFPN = BackboneWithFPN(backbone, return_layers, in_channels_list, out_channels, extra_blocks=None)
-    # transform = GeneralizedRCNNTransform(min_size=256, max_size=256, image_mean=None, image_std=None, fixed_size=(256,256), _skip_resize=True)
+    print(backboneFPN)
+    # transform = GeneralizedRCNNTransform(min_size=256, max_size=256, image_mean=None,
+    # image_std=None, fixed_size=(256,256), _skip_resize=True)
     # _skip_resize=True does not take effect
     anchor_generator = AnchorGenerator(sizes=(1, 2, 4), aspect_ratios=(0.5, 1, 2))
     box_roi_pool = MultiScaleRoIAlign(featmap_names=["0"], output_size=7, sampling_ratio=2)

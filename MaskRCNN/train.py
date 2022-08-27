@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from MaskRCNN.model import faster_rcnn_2conv
+from MaskRCNN.model import faster_rcnn_fcn
 
 
 # from MaskRCNN.gpu import collect_gpu_info
@@ -113,7 +113,9 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
         if not math.isfinite(total_loss.item()):
             print("Loss is {}, stopping training".format(total_loss.item()))
             # sys.exit(1)
-        total_loss.backward()
+
+        # elif training_mode=='rpn':
+        #     total_loss[]
         optimizer.step()
         optimizer.zero_grad()
 
@@ -178,8 +180,10 @@ def fit(use_cuda, data_set, train_hp, mask_hp):
         dataset_test, batch_size=1, shuffle=False, num_workers=4,
         collate_fn=collate_fn)
 
-    model = faster_rcnn_2conv(True, num_classes=2, weights_path='./modelweights/CNN_smoothl1.tar',
-                              setting_dict=mask_hp).to(device)
+    # model = faster_rcnn_2conv(True, num_classes=2, weights_path='./modelweights/CNN_smoothl1.tar',
+    #                           setting_dict=mask_hp).to(device)
+    model = faster_rcnn_fcn(True, num_classes=2, weights_path='./modelweights/TinySegResNet_map01_im_metadict_final.tar',
+                            setting_dict=mask_hp).to(device)
 
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(
