@@ -52,8 +52,8 @@ class FCNBackbone(nn.Sequential):
     def __init__(self, nb_filters: int = 64):
         super(FCNBackbone, self).__init__()
         self.channel2one = channellayer()
-        self.fcn = TinySegResNet()
-        features: List[nn.Module] = [self.channel2one] + list(self.fcn.c1.block.children())[:1] + list(self.fcn.bn.res_module[0].children())[:3]
+        self.fcov = TinySegResNet()
+        features: List[nn.Module] = [self.channel2one] + list(self.fcov.c1.block.children())[:1] + list(self.fcov.bn.res_module[0].children())[:3]
 
         # make it nn.Sequential
         self.features = nn.Sequential(*features)
@@ -103,7 +103,7 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
 
     if pretrained:
         model_state_dict = torch.load(weights_path, map_location=torch.device('cpu'))
-        backbone.fcn.load_state_dict(model_state_dict['weights'])
+        backbone.fcov.load_state_dict(model_state_dict['weights'])
 
     backbone = backbone.features
 
