@@ -103,7 +103,7 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
 
     if pretrained:
         model_state_dict = torch.load(weights_path, map_location=torch.device('cpu'))
-        backbone.fcov.load_state_dict(model_state_dict['weights'])
+        backbone.fcov.load_state_dict(model_state_dict['state_dict'])
 
     backbone = backbone.features
 
