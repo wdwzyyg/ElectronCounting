@@ -119,7 +119,7 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
 
     backboneFPN = BackboneWithFPN(backbone, return_layers, in_channels_list, out_channels, extra_blocks=None)
 
-    anchor_generator = AnchorGenerator(sizes=((1, 2, 4), )*3, aspect_ratios=((0.5, 1, 2), )*3)
+    anchor_generator = AnchorGenerator(sizes=((1, 2, ), )*3, aspect_ratios=((0.25, 0.5, 1, 2), )*3)
     box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "pool"], output_size=7, sampling_ratio=2)
 
     resolution = box_roi_pool.output_size[0]  # 7
