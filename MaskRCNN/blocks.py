@@ -54,7 +54,8 @@ class ConvBlock(nn.Module):
                          output_channels,
                          kernel_size=kernel_size,
                          stride=stride,
-                         padding=padding))
+                         padding=padding,
+                         padding_mode='circular'))
             if dropout_ > 0:
                 block.append(nn.Dropout(dropout_))
             block.append(nn.LeakyReLU(negative_slope=lrelu_a))
@@ -159,17 +160,20 @@ class ResBlock(nn.Module):
                        output_channels,
                        kernel_size=1,
                        stride=1,
-                       padding=0)
+                       padding=1,
+                       padding_mode='circular')
         self.c1 = conv(output_channels,
                        output_channels,
                        kernel_size=3,
                        stride=1,
-                       padding=1)
+                       padding=1,
+                       padding_mode='circular')
         self.c2 = conv(output_channels,
                        output_channels,
                        kernel_size=3,
                        stride=1,
-                       padding=1)
+                       padding=1,
+                       padding_mode='circular')
         if batch_norm:
             bn = nn.BatchNorm2d if ndim == 2 else nn.BatchNorm1d
             self.bn1 = bn(output_channels)
@@ -230,7 +234,7 @@ class UpsampleBlock(nn.Module):
         self.mode = mode if ndim == 2 else "nearest"
         self.conv = conv(
             input_channels, output_channels,
-            kernel_size=1, stride=1, padding=0)
+            kernel_size=1, stride=1, padding=1, padding_mode='circular')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
