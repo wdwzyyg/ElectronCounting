@@ -160,7 +160,7 @@ class ResBlock(nn.Module):
                        output_channels,
                        kernel_size=1,
                        stride=1,
-                       padding=1,
+                       padding=0,
                        padding_mode='circular')
         self.c1 = conv(output_channels,
                        output_channels,
@@ -234,7 +234,7 @@ class UpsampleBlock(nn.Module):
         self.mode = mode if ndim == 2 else "nearest"
         self.conv = conv(
             input_channels, output_channels,
-            kernel_size=1, stride=1, padding=1, padding_mode='circular')
+            kernel_size=1, stride=1, padding=0, padding_mode='circular')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
