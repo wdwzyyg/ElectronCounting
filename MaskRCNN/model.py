@@ -108,19 +108,25 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
     backbone = backbone.features
 
     backbone.out_channels = 64
-    stage_indices = [1, 2] # the three conv layers
+    stage_indices = [1, 2, 4] # the three conv layers
     num_stages = len(stage_indices)
 
     out_channels = 64
-    returned_layers = [0, 1]
+    returned_layers = [0, 1, 2]
     assert min(returned_layers) >= 0 and max(returned_layers) < num_stages
     return_layers = {f'{stage_indices[k]}': str(v) for v, k in enumerate(returned_layers)}
     in_channels_list = [backbone[stage_indices[i]].out_channels for i in returned_layers]
 
     backboneFPN = BackboneWithFPN(backbone, return_layers, in_channels_list, out_channels, extra_blocks=None)
 
-    anchor_generator = AnchorGenerator(sizes=((1, 2, ), )*3, aspect_ratios=((0.25, 0.5, 1, 2), )*3)
-    box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "pool"], output_size=7, sampling_ratio=2)
+    # change the padding model of cov layers in backboneFPN
+    for layer in backboneFPN.fpn.inner_blocks:
+        list(layer.children())[0].padding_mode = 'circular'
+    for layer in backboneFPN.fpn.layer_blocks:
+        list(layer.children())[0].padding_mode = 'circular'
+
+    anchor_generator = AnchorGenerator(sizes=((1, 2, ), )*4, aspect_ratios=((0.25, 0.5, 1, 2), )*4)
+    box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "pool"], output_size=7, sampling_ratio=2)
 
     resolution = box_roi_pool.output_size[0]  # 7
     representation_size = 1024
