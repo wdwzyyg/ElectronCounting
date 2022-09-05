@@ -54,6 +54,11 @@ class GeneralizedDataset:
         # in order to meet requirement in generalized_rcnn.py line 95
         boxes[:, 2] = boxes[:, 2] + 1
         boxes[:, 3] = boxes[:, 3] + 1
+
+        # the x and y in boxes seems to wrong. Swap here.
+        boxes[:, [0, 1]] = boxes[:, [1, 0]]
+        boxes[:, [2, 3]] = boxes[:, [3, 2]]
+
         masks = torch.tensor(masks, dtype=torch.uint8)
         if self.expandmask:
             masks_e = torch.zeros(masks.size()[0], self.imagesize, self.imagesize)
