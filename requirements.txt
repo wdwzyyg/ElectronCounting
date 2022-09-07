@@ -4,6 +4,6 @@ numpy~=1.22.3
 scikit-learn~=1.0.2
 matplotlib~=3.5.1
 opencv-python~=4.5.5.64
-# torchvision~=0.13.0+cu113
+torchvision~=0.13.0+cu113
 git+https://github.com/wdwzyyg/vision.git
 chainer~=7.8.1

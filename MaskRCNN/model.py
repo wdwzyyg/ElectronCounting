@@ -108,7 +108,7 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
     backbone = backbone.features
 
     backbone.out_channels = 64
-    stage_indices = [1, 2, 4] # the three conv layers
+    stage_indices = [1, 2, 3]  # the three conv layers with original resolution
     num_stages = len(stage_indices)
 
     out_channels = 64
