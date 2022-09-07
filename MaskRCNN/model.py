@@ -9,8 +9,7 @@ from torchvision.models.detection.backbone_utils import BackboneWithFPN
 # from MaskRCNN.transform import CustomTransform # cannot use custom transform.
 from torchvision.ops import MultiScaleRoIAlign
 
-from MaskRCNN.faster_rcnn_custom import FasterRCNN
-from MaskRCNN.faster_rcnn_custom import TwoMLPHead
+from MaskRCNN.faster_rcnn_custom import FasterRCNN, TwoMLPHead
 from MaskRCNN.fcn import TinySegResNet
 
 
