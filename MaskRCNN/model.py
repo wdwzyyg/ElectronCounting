@@ -9,6 +9,8 @@ from torchvision.models.detection.backbone_utils import BackboneWithFPN
 # from MaskRCNN.transform import CustomTransform # cannot use custom transform.
 from torchvision.ops import MultiScaleRoIAlign
 
+from MaskRCNN.faster_rcnn_custom import FasterRCNN
+from MaskRCNN.faster_rcnn_custom import TwoMLPHead
 from MaskRCNN.fcn import TinySegResNet
 
 
@@ -61,30 +63,6 @@ class FCNBackbone(nn.Sequential):
     def forward(self, x):
         x = self.channel2one(x)
         x = TinySegResNet(x)
-        return x
-
-
-class TwoMLPHead(nn.Module):
-    """
-    Standard heads for FPN-based models
-
-    Args:
-        in_channels (int): number of input channels
-        representation_size (int): size of the intermediate representation
-    """
-
-    def __init__(self, in_channels, representation_size):
-        super().__init__()
-
-        self.fc6 = nn.Linear(in_channels, representation_size)
-        self.fc7 = nn.Linear(representation_size, representation_size)
-
-    def forward(self, x):
-        x = x.flatten(start_dim=1)
-
-        x = F.relu(self.fc6(x))
-        x = F.relu(self.fc7(x))
-
         return x
 
 
@@ -210,7 +188,7 @@ def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
     # box_predictor = FastRCNNPredictor(representation_size, num_classes=None)
 
     # load an instance segmentation model pre-trained on COCO
-    model = torchvision.models.detection.FasterRCNN(backbone=backboneFPN, num_classes=num_classes,
+    model = FasterRCNN(backbone=backboneFPN, num_classes=num_classes,
                                                     rpn_anchor_generator=anchor_generator,
                                                     box_head=box_head,
                                                     **setting_dict)
