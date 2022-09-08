@@ -5,13 +5,13 @@ import torch.nn.functional as F
 from torch import nn
 # import the custom AnchorGenerator object instead of from torchvision
 from torchvision.models.detection.generalized_rcnn import GeneralizedRCNN
-from torchvision.models.detection.roi_heads import RoIHeads
 from torchvision.models.detection.rpn import RPNHead, RegionProposalNetwork
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from torchvision.ops import MultiScaleRoIAlign
 from torchvision.ops import misc as misc_nn_ops
 
 from MaskRCNN.anchor_custom import AnchorGenerator
+from MaskRCNN.roi_heads_custom import RoIHeads
 
 __all__ = [
     "FasterRCNN",
@@ -171,6 +171,7 @@ class FasterRCNN(GeneralizedRCNN):
         box_roi_pool=None,
         box_head=None,
         box_predictor=None,
+        box_iou_cpu=False,
         box_score_thresh=0.05,
         box_nms_thresh=0.5,
         box_detections_per_img=100,
@@ -245,6 +246,7 @@ class FasterRCNN(GeneralizedRCNN):
             box_roi_pool,
             box_head,
             box_predictor,
+            box_iou_cpu,
             box_fg_iou_thresh,
             box_bg_iou_thresh,
             box_batch_size_per_image,
