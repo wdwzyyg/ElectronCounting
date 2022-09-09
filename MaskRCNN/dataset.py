@@ -14,10 +14,11 @@ class GeneralizedDataset:
     target: dict(image_id(str), boxes(tensor int16), masks(tensor uint8))
     """
 
-    def __init__(self, data_dir, train=False, filenum=25, expandmask=False, imagesize=256):
+    def __init__(self, data_dir, train=False, filenum=25, getmask= False, expandmask=False, imagesize=256):
         self.data_dir = data_dir
         self.train = train
         self.expandmask = expandmask
+        self.getmask = getmask
         self.imagesize = imagesize
         self.ids = ["%03d" % i + "%03d" % j for i in [*range(filenum)] for j in [*range(200)]]
 
@@ -45,8 +46,6 @@ class GeneralizedDataset:
         dir_m = self.data_dir + img_id[:3] + '_mask.npz'
 
         boxes = np.load(dir_b)['arr_' + str(int(img_id[3:]))]
-        masks = np.load(dir_m)['arr_' + str(int(img_id[3:]))]
-        masks = masks.astype('int')
         boxes = torch.tensor(boxes, dtype=torch.float32)
         labels = torch.ones(size=(boxes.size()[0], 1), dtype=torch.int64).flatten()  # required to be int64 and 1D
         # labels = torch.cat((torch.zeros_like(labels), labels), dim=1)  # [0,1] for each box
@@ -59,26 +58,33 @@ class GeneralizedDataset:
         boxes[:, [0, 1]] = boxes[:, [1, 0]]
         boxes[:, [2, 3]] = boxes[:, [3, 2]]
 
-        masks = torch.tensor(masks, dtype=torch.uint8)
-        if self.expandmask:
-            masks_e = torch.zeros(masks.size()[0], self.imagesize, self.imagesize)
-            for i, box in enumerate(boxes):
-                mask_e = masks[i]
-                box = box.type(torch.int)
-                if box[0] < 0:
-                    mask_e = mask_e[-box[0]:]
-                if box[1] < 0:
-                    mask_e = mask_e[:, -box[1]:]
-                if box[2] > self.imagesize:
-                    mask_e = mask_e[:(box[2] - self.imagesize)]
-                if box[3] > self.imagesize:
-                    mask_e = mask_e[:, :(box[3] - self.imagesize)]
+        if self.getmask:
 
-                masks_e[i] = F.pad(mask_e, (
-                    int(max(0, box[1])), self.imagesize - int(max(0, box[1])) - mask_e.size()[1], int(max(0, box[0])),
-                    self.imagesize - int(max(0, box[0])) - mask_e.size()[0]), "constant", 0)
+            masks = np.load(dir_m)['arr_' + str(int(img_id[3:]))]
+            masks = masks.astype('int')
+            masks = torch.tensor(masks, dtype=torch.uint8)
+            if self.expandmask:
+                masks_e = torch.zeros(masks.size()[0], self.imagesize, self.imagesize)
+                for i, box in enumerate(boxes):
+                    mask_e = masks[i]
+                    box = box.type(torch.int)
+                    if box[0] < 0:
+                        mask_e = mask_e[-box[0]:]
+                    if box[1] < 0:
+                        mask_e = mask_e[:, -box[1]:]
+                    if box[2] > self.imagesize:
+                        mask_e = mask_e[:(box[2] - self.imagesize)]
+                    if box[3] > self.imagesize:
+                        mask_e = mask_e[:, :(box[3] - self.imagesize)]
 
-            masks = masks_e
+                    masks_e[i] = F.pad(mask_e, (
+                        int(max(0, box[1])), self.imagesize - int(max(0, box[1])) - mask_e.size()[1], int(max(0, box[0])),
+                        self.imagesize - int(max(0, box[0])) - mask_e.size()[0]), "constant", 0)
 
-        target = dict(image_ids=torch.tensor(int(img_id), dtype=torch.int), boxes=boxes, masks=masks, labels=labels)
+                masks = masks_e
+        if self.getmask:
+            target = dict(image_ids=torch.tensor(int(img_id), dtype=torch.int), boxes=boxes, masks=masks, labels=labels)
+        else:
+            target = dict(image_ids=torch.tensor(int(img_id), dtype=torch.int), boxes=boxes, labels=labels)
+
         return target
