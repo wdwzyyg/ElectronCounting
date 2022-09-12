@@ -102,11 +102,11 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
 
     anchor_generator = AnchorGenerator(sizes=((1, 2, ), )*4, aspect_ratios=((0.25, 1, 2), )*4, stride_multiplier = 1)
     box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "pool"], output_size=7, sampling_ratio=2)
-    rpn_head = RPNHead(out_channels, anchor_generator.num_anchors_per_location()[0])
+    rpn_head = RPNHead(backbone.out_channels, anchor_generator.num_anchors_per_location()[0])
 
     resolution = box_roi_pool.output_size[0]  # 7
     representation_size = 1024
-    box_head = TwoMLPHead(out_channels * resolution ** 2, representation_size)  # (2*7^2, 1024)
+    box_head = TwoMLPHead(backbone.out_channels * resolution ** 2, representation_size)  # (2*7^2, 1024)
     # box_predictor = FastRCNNPredictor(representation_size, num_classes=None)
 
     # load an instance segmentation model pre-trained on COCO
