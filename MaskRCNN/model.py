@@ -83,17 +83,16 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
 
     backbone = backbone.features
 
-    # backbone.out_channels = 64
     stage_indices = [1, 2, 4]  # the three conv layers with original resolution
     num_stages = len(stage_indices)
 
-    out_channels = backbone.out_channels
+    backbone.out_channels = 64
     returned_layers = [0, 1, 2]
     assert min(returned_layers) >= 0 and max(returned_layers) < num_stages
     return_layers = {f'{stage_indices[k]}': str(v) for v, k in enumerate(returned_layers)}
     in_channels_list = [backbone[stage_indices[i]].out_channels for i in returned_layers]
 
-    backboneFPN = BackboneWithFPN(backbone, return_layers, in_channels_list, out_channels, extra_blocks=None)
+    backboneFPN = BackboneWithFPN(backbone, return_layers, in_channels_list, backbone.out_channels, extra_blocks=None)
 
     # change the padding model of cov layers in backboneFPN
     for layer in backboneFPN.fpn.inner_blocks:
@@ -187,8 +186,8 @@ def faster_rcnn_2conv(pretrained, num_classes, weights_path, setting_dict):
 
     # load an instance segmentation model pre-trained on COCO
     model = FasterRCNN(backbone=backboneFPN, num_classes=num_classes,
-                                                    rpn_anchor_generator=anchor_generator,
-                                                    box_head=box_head,
-                                                    **setting_dict)
+                       rpn_anchor_generator=anchor_generator,
+                       box_head=box_head,
+                       **setting_dict)
 
     return model
