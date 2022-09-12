@@ -14,7 +14,7 @@ from MaskRCNN.anchor_custom import AnchorGenerator
 from MaskRCNN.roi_heads_custom import RoIHeads
 
 __all__ = [
-    "FasterRCNN",
+    "FasterRCNN", "TwoMLPHead",
 ]
 
 
