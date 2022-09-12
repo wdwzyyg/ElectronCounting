@@ -1,6 +1,5 @@
 import bisect
 import glob
-import math
 import os
 import re
 import time
@@ -90,7 +89,11 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
     print('iters per epoch:', iters)
     # iters = len(data_loader)
 
+    #######################################
     model.train()
+    # model.backbone.train(False)
+    model.roi_heads.train(False)
+    #######################################
     A = time.time()
     for i, (images, targets) in enumerate(data_loader):
         num_iters = epoch * len(data_loader) + i
@@ -105,14 +108,15 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         losses = model(images, targets)
-
         train_loss.append(losses)
+
         # total_loss = sum(losses.values())
         total_loss = sum(loss for loss in losses.values())
 
-        if not math.isfinite(total_loss.item()):
-            print("Loss is {}, stopping training".format(total_loss.item()))
-            # sys.exit(1)
+        # if not math.isfinite(total_loss.item()):
+        #     print("Loss is {}, stopping training".format(total_loss.item()))
+        # sys.exit(1)
+        # break
 
         # elif training_mode=='rpn':
         #     total_loss[]
@@ -126,7 +130,6 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
             break
 
     return train_loss
-
 
 @torch.no_grad()
 def evaluate(model, data_loader, device, epoch, arg, generate=True):
