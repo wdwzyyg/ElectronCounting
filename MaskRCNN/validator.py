@@ -5,6 +5,8 @@ import torch
 from torchvision.ops.boxes import box_iou
 
 
+# TODO: save results if savepath is not none
+
 class Validator:
     """
     used for test model...
@@ -66,6 +68,8 @@ class Validator:
         Rlist = []
         F1list = []
         for i, (_, t) in enumerate(self.test_dataset):
+            if i == self.sample:
+                break
             t = [{k: v.to(self.device) for k, v in t.items()} for t in t]
             nums_pred = self.boxes_list[i].size()[0]
             print('Detected: ', nums_pred)
@@ -107,3 +111,4 @@ class Validator:
         plt.title("PR Curve")
         plt.xlabel('Recall')
         plt.ylabel('Precision')
+        return Plist, Rlist, F1list
