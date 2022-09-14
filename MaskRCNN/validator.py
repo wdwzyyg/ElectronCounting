@@ -1,3 +1,4 @@
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -15,33 +16,67 @@ class Validator:
 
     """
 
-    def __init__(self, test_dataset=None, model_object=None, test_part='all'):
+    def __init__(self, test_dataset=None, model_object=None, test_part='all', savepath=None, sample=1):
         self.model_object = model_object
         self.test_part = test_part
         self.test_dataset = test_dataset
+        self.savepath = savepath
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.boxes_list = []
+        self.featuremap_list = []
+        self.sample = sample
 
     @torch.no_grad()
-    def calculate_F1(self, threshold_IoU):
+    def predict(self):
         self.model_object.eval()
-        Plist = []
-        Rlist = []
-        F1list = []
         for i, (im, t) in enumerate(self.test_dataset):
+            if i == self.sample:
+                break
             im = list(im_.to(self.device) for im_ in im)
-            t = [{k: v.to(self.device) for k, v in t.items()} for t in t]
-            if self.test_part=='rpn':
+            if self.test_part == 'rpn':
                 images, targets = self.model_object.transform(im, t)
                 y = (self.model_object.backbone(images.tensors))
                 boxes = self.model_object.rpn(images, y, targets)[0][0]
-            elif self.test_part=='all':
+            elif self.test_part == 'all':
                 boxes = self.model_object(im)[0]['boxes']
+            self.boxes_list.append(boxes)
+            self.featuremap_list.append(y['0'][0, 10])
 
-            nums_pred = boxes.size()[0]
+    def visualize(self):
+        for i, (im, t) in enumerate(self.test_dataset):
+            if i == self.sample:
+                break
+            fig = plt.figure(figsize=(8, 8))
+            if self.device == torch.device("cuda"):
+                pred = self.boxes_list[i].detach().cpu().numpy()
+                feature = self.featuremap_list[i].detach().cpu().numpy()
+            ax1, ax2 = fig.subplots(1, 2)
+            ax1.imshow(im[0][0], origin='lower')
+            for box in pred:
+                xmin, ymin, xmax, ymax = box
+                # x y as lower left so xmax, ymin
+                rect = patches.Rectangle((xmin - 0.5, ymin - 0.5), xmax - xmin, ymax - ymin, linewidth=1, edgecolor='r',
+                                         facecolor='none')
+                ax1.add_patch(rect)
+            ax2.imshow(feature, origin='lower')
+            plt.show()
+
+    def calculate_F1(self, threshold_IoU):
+        Plist = []
+        Rlist = []
+        F1list = []
+        for i, (_, t) in enumerate(self.test_dataset):
+            t = [{k: v.to(self.device) for k, v in t.items()} for t in t]
+            nums_pred = self.boxes_list[i].size()[0]
+            print('Detected: ', nums_pred)
             box_gt = t[0]['boxes']
             nums_gt = box_gt.size()[0]
+            print('Ground truth: ', nums_gt)
 
-            iou_matrix = box_iou(boxes, box_gt)
+            iou_matrix = box_iou(self.boxes_list[i], box_gt)
+
+            if self.device == torch.device("cuda"):
+                iou_matrix = iou_matrix.detach().cpu().numpy()
             tp = 0
             while np.any(iou_matrix > threshold_IoU):
                 ind = np.argmax(iou_matrix)
@@ -53,9 +88,13 @@ class Validator:
                 for ii in range(nums_pred):
                     iou_matrix[ii][ind_col] = 0  # set col to 0
 
-            precision = 1.0 * tp / (np.sum(nums_gt))
-            recall = 1.0 * tp / (np.sum(box_gt))
-            F1 = 2.0 * recall * precision / (recall + precision)
+            precision = 1.0 * tp / nums_pred
+            recall = 1.0 * tp / nums_gt
+            if (precision + recall) == 0.0:
+                print('Recall = ', recall, 'Precision = ', precision)
+                F1 = None
+            else:
+                F1 = 2.0 * recall * precision / (recall + precision)
 
             Plist.append(precision)
             Rlist.append(recall)
@@ -68,4 +107,3 @@ class Validator:
         plt.title("PR Curve")
         plt.xlabel('Recall')
         plt.ylabel('Precision')
-
