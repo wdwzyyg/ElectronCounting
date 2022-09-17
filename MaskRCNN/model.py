@@ -12,6 +12,12 @@ from MaskRCNN.faster_rcnn_custom import FasterRCNN, TwoMLPHead
 from MaskRCNN.fcn import TinySegResNet
 
 
+def map01(raw):
+    raw -= raw.min()
+    raw /= raw.max()
+    return raw
+
+
 class channellayer(nn.Module):
     """ Custom layer to delete two channels in input """
 
@@ -49,11 +55,12 @@ class CovBackbone(nn.Sequential):
 
 
 class FCNBackbone(nn.Sequential):
-    def __init__(self, nb_filters: int = 64):
+    def __init__(self):
         super(FCNBackbone, self).__init__()
         self.channel2one = channellayer()
         self.fcov = TinySegResNet()
-        features: List[nn.Module] = [self.channel2one] + list(self.fcov.c1.block.children())[:1] + list(self.fcov.bn.res_module[0].children())[:3]
+        features: List[nn.Module] = [self.channel2one] + list(self.fcov.c1.block.children())[:1] + list(
+            self.fcov.bn.res_module[0].children())[:3]
 
         # make it nn.Sequential
         self.features = nn.Sequential(*features)
@@ -62,6 +69,66 @@ class FCNBackbone(nn.Sequential):
         x = self.channel2one(x)
         x = TinySegResNet(x)
         return x
+
+
+class Mathlayers(nn.Module):
+    """
+  input: tensor of shape [batch, c, h, w]
+  output: tensor of shape [batch, 4*c, h, w]
+  """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        a = torch.clip(map01(torch.log(x + 0.01)), 0.1)
+        b = torch.clip(map01(torch.sqrt(x)), 0.1)
+        c = torch.clip(map01(torch.cat(list(torch.gradient(x, dim=[-1, -2])), dim=1)), 0.1)
+        res = torch.cat((a, b, c), dim=1)
+        return res
+
+
+class MathBackbone(nn.Module):
+    def __init__(self):
+        super(MathBackbone, self).__init__()
+        self.channel2one = channellayer()
+        self.math = Mathlayers()
+        self.math2 = Mathlayers()
+        self.out_channels = 16
+
+    def forward(self, x):
+        x = self.channel2one(x)
+        x = self.math(x)
+        x = self.math2(x)
+        return x
+
+
+def faster_rcnn_math(num_classes, setting_dict):
+    """
+    Constructs a Mask R-CNN model with a math backbone.
+
+    Arguments:
+        num_classes (int): number of classes (including the background).
+        setting_dict: dict of all the model parameters
+    """
+
+    backbone = MathBackbone()
+
+    anchor_generator = AnchorGenerator(sizes=((1, 2,),), aspect_ratios=((0.25, 1, 2),), stride_multiplier=1)
+    box_roi_pool = MultiScaleRoIAlign(featmap_names=["0"], output_size=7, sampling_ratio=2)
+    rpn_head = RPNHead(backbone.out_channels, anchor_generator.num_anchors_per_location()[0])
+
+    resolution = box_roi_pool.output_size[0]  # 7
+    representation_size = 1024
+    box_head = TwoMLPHead(backbone.out_channels * resolution ** 2, representation_size)  # (2*7^2, 1024)
+    # box_predictor = FastRCNNPredictor(representation_size, num_classes=None)
+
+    # load an instance segmentation model pre-trained on COCO
+    model = FasterRCNN(backbone=backbone, num_classes=num_classes,
+                       rpn_anchor_generator=anchor_generator, rpn_head=rpn_head,
+                       box_head=box_head, box_roi_pool=box_roi_pool,
+                       **setting_dict)
+    return model
 
 
 def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
@@ -100,7 +167,7 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
     for layer in backboneFPN.fpn.layer_blocks:
         list(layer.children())[0].padding_mode = 'circular'
 
-    anchor_generator = AnchorGenerator(sizes=((1, 2, ), )*4, aspect_ratios=((0.25, 1, 2), )*4, stride_multiplier = 1)
+    anchor_generator = AnchorGenerator(sizes=((1, 2,),) * 4, aspect_ratios=((0.25, 1, 2),) * 4, stride_multiplier=1)
     box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "pool"], output_size=7, sampling_ratio=2)
     rpn_head = RPNHead(backbone.out_channels, anchor_generator.num_anchors_per_location()[0])
 
@@ -111,7 +178,7 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
 
     # load an instance segmentation model pre-trained on COCO
     model = FasterRCNN(backbone=backboneFPN, num_classes=num_classes,
-                       rpn_anchor_generator=anchor_generator,rpn_head=rpn_head,
+                       rpn_anchor_generator=anchor_generator, rpn_head=rpn_head,
                        box_head=box_head, box_roi_pool=box_roi_pool,
                        **setting_dict)
 

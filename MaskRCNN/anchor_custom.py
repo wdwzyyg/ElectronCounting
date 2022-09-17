@@ -123,6 +123,8 @@ class AnchorGenerator(nn.Module):
             for g in grid_sizes
         ]
         self.set_cell_anchors(dtype, device)
+        # print('grid_sizes', len(grid_sizes), 'strides', len(strides), 'cell', len(self.cell_anchors))
+
         anchors_over_all_feature_maps = self.grid_anchors(grid_sizes, strides)
         anchors: List[List[torch.Tensor]] = []
         for _ in range(len(image_list.image_sizes)):

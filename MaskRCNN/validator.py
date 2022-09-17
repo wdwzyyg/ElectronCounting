@@ -56,7 +56,6 @@ class Validator:
             ax1.imshow(im[0][0], origin='lower')
             for box in pred:
                 xmin, ymin, xmax, ymax = box
-                # x y as lower left so xmax, ymin
                 rect = patches.Rectangle((xmin - 0.5, ymin - 0.5), xmax - xmin, ymax - ymin, linewidth=1, edgecolor='r',
                                          facecolor='none')
                 ax1.add_patch(rect)
@@ -110,5 +109,7 @@ class Validator:
                  label='precision')
         plt.title("PR Curve")
         plt.xlabel('Recall')
+        plt.xlim((0, 1))
+        plt.ylim((0, 1))
         plt.ylabel('Precision')
         return Plist, Rlist, F1list

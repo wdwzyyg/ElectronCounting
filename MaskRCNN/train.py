@@ -49,36 +49,25 @@ def plot_train_history(checkpoint_paths):
     different color for different check points/ epochs
     :param checkpoint_paths: wholes paths of the saved check points.
     """
-    roi_box_loss, roi_classifier_loss, rpn_box_loss, rpn_objectness_loss = [], [], [], []
+    losses = torch.load(checkpoint_paths[0])['losses']
+    keys = losses['train_loss'][0].keys()
+
+    losses_dict = {key: [] for key in keys}
+
     for i, ckp in enumerate(checkpoint_paths):
         losses = torch.load(ckp)['losses']
-        roi_box_loss.append([it['loss_box_reg'].item() for it in losses['train_loss']])
-        roi_classifier_loss.append([it['loss_classifier'].item() for it in losses['train_loss']])
-        rpn_box_loss.append([it['loss_rpn_box_reg'].item() for it in losses['train_loss']])
-        rpn_objectness_loss.append([it['loss_objectness'].item() for it in losses['train_loss']])
+        for key in keys:
+            losses_dict[key].append([it[key].item() for it in losses['train_loss']])
 
-    num = len(roi_box_loss[0])
+    ckps = len(checkpoint_paths)
+    num = len(losses_dict[key][0])
     fig = plt.figure(figsize=(30, 8))
-    fig.add_subplot(141)
-    for j in range(len(roi_box_loss)):
-        plt.scatter(np.arange(num) + j * num, roi_box_loss[j], s=2, alpha=1 - 0.5 * j / len(roi_box_loss))
-    plt.xlabel('iters')
-    plt.ylabel('roi_box_loss')
-    fig.add_subplot(142)
-    for j in range(len(roi_classifier_loss)):
-        plt.scatter(np.arange(num) + j * num, roi_classifier_loss[j], s=2, alpha=1 - 0.5 * j / len(roi_classifier_loss))
-    plt.xlabel('iters')
-    plt.ylabel('roi_classifier_loss')
-    fig.add_subplot(143)
-    for j in range(len(rpn_box_loss)):
-        plt.scatter(np.arange(num) + j * num, rpn_box_loss[j], s=2, alpha=1 - 0.5 * j / len(rpn_box_loss))
-    plt.xlabel('iters')
-    plt.ylabel('rpn_box_loss')
-    fig.add_subplot(144)
-    for j in range(len(rpn_objectness_loss)):
-        plt.scatter(np.arange(num) + j * num, rpn_objectness_loss[j], s=2, alpha=1 - 0.5 * j / len(rpn_objectness_loss))
-    plt.xlabel('iters')
-    plt.ylabel('rpn_objectness_loss')
+    for k, key in enumerate(keys):
+        fig.add_subplot(1, len(keys), k+1)
+        for j in range(ckps):
+            plt.scatter(np.arange(num) + j * num, losses_dict[key][j], s=2, alpha=1 - 0.5 * j / num)
+        plt.xlabel('iters')
+        plt.ylabel(key)
 
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
@@ -131,6 +120,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, param):
 
     return train_loss
 
+
 @torch.no_grad()
 def evaluate(model, data_loader, device, epoch, arg, generate=True):
     """
@@ -176,7 +166,7 @@ def fit(use_cuda, data_set, train_hp, mask_hp):
 
     # define training and validation data loaders
     d_train = torch.utils.data.DataLoader(
-        dataset_train, batch_size=pms.batch_size, shuffle=True,num_workers=4,
+        dataset_train, batch_size=pms.batch_size, shuffle=True, num_workers=4,
         collate_fn=collate_fn)
 
     d_test = torch.utils.data.DataLoader(
@@ -185,7 +175,8 @@ def fit(use_cuda, data_set, train_hp, mask_hp):
 
     # model = faster_rcnn_2conv(True, num_classes=2, weights_path='./modelweights/CNN_smoothl1.tar',
     #                           setting_dict=mask_hp).to(device)
-    model = faster_rcnn_fcn(True, num_classes=2, weights_path='./modelweights/TinySegResNet_map01_im_metadict_final.tar',
+    model = faster_rcnn_fcn(True, num_classes=2,
+                            weights_path='./modelweights/TinySegResNet_map01_im_metadict_final.tar',
                             setting_dict=mask_hp).to(device)
 
     params = [p for p in model.parameters() if p.requires_grad]
