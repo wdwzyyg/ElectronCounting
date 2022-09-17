@@ -150,7 +150,7 @@ class FasterRCNN(GeneralizedRCNN):
         backbone,
         num_classes=None,
         # transform parameters
-        normalize=True,
+        if_normalize=True,
         min_size=800,
         max_size=1333,
         image_mean=None,
@@ -262,7 +262,7 @@ class FasterRCNN(GeneralizedRCNN):
             image_mean = [0.485, 0.456, 0.406]
         if image_std is None:
             image_std = [0.229, 0.224, 0.225]
-        transform = GeneralizedRCNNTransform(normalize, min_size, max_size, image_mean, image_std, **kwargs)
+        transform = GeneralizedRCNNTransform(if_normalize, min_size, max_size, image_mean, image_std, **kwargs)
 
         super().__init__(backbone, rpn, roi_heads, transform)
 

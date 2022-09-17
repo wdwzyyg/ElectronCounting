@@ -82,7 +82,7 @@ class GeneralizedRCNNTransform(nn.Module):
 
     def __init__(
         self,
-        normalize: bool,
+        if_normalize: bool,
         min_size: int,
         max_size: int,
         image_mean: List[float],
@@ -94,6 +94,7 @@ class GeneralizedRCNNTransform(nn.Module):
         super().__init__()
         if not isinstance(min_size, (list, tuple)):
             min_size = (min_size,)
+        self.if_normalize = if_normalize
         self.min_size = min_size
         self.max_size = max_size
         self.image_mean = image_mean
@@ -124,7 +125,7 @@ class GeneralizedRCNNTransform(nn.Module):
 
             if image.dim() != 3:
                 raise ValueError(f"images is expected to be a list of 3d tensors of shape [C, H, W], got {image.shape}")
-            if self.normalize:
+            if self.if_normalize:
                 image = self.normalize(image)
             image, target_index = self.resize(image, target_index)
             images[i] = image
