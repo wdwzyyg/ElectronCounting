@@ -1,11 +1,11 @@
+from collections import OrderedDict
+
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torchvision.ops.boxes import box_iou
 
-
-# TODO: save results if savepath is not none
 
 class Validator:
     """
@@ -37,7 +37,10 @@ class Validator:
             im = list(im_.to(self.device) for im_ in im)
             if self.test_part == 'rpn':
                 images, targets = self.model_object.transform(im, t)
-                y = (self.model_object.backbone(images.tensors))
+                # y = (self.model_object.backbone(images.tensors))
+                y = self.model_object.backbone(images.tensors)
+                if isinstance(y, torch.Tensor):
+                    y = OrderedDict([("0", y)])
                 boxes = self.model_object.rpn(images, y, targets)[0][0]
             elif self.test_part == 'all':
                 boxes = self.model_object(im)[0]['boxes']
@@ -50,16 +53,16 @@ class Validator:
                 break
             fig = plt.figure(figsize=(8, 8))
             if self.device == torch.device("cuda"):
-                pred = self.boxes_list[i].detach().cpu().numpy()
-                feature = self.featuremap_list[i].detach().cpu().numpy()
+                pred_ = self.boxes_list[i].detach().cpu().numpy()
+                feature_ = self.featuremap_list[i].detach().cpu().numpy()
             ax1, ax2 = fig.subplots(1, 2)
             ax1.imshow(im[0][0], origin='lower')
-            for box in pred:
+            for box in pred_:
                 xmin, ymin, xmax, ymax = box
                 rect = patches.Rectangle((xmin - 0.5, ymin - 0.5), xmax - xmin, ymax - ymin, linewidth=1, edgecolor='r',
                                          facecolor='none')
                 ax1.add_patch(rect)
-            ax2.imshow(feature, origin='lower')
+            ax2.imshow(feature_, origin='lower')
             plt.show()
 
     def calculate_F1(self, threshold_IoU):
