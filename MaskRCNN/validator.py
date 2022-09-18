@@ -45,7 +45,7 @@ class Validator:
             elif self.test_part == 'all':
                 boxes = self.model_object(im)[0]['boxes']
             self.boxes_list.append(boxes)
-            self.featuremap_list.append(y['0'][0, 10])
+            self.featuremap_list.append(y['0'][0, 0])
 
     def visualize(self):
         for i, (im, t) in enumerate(self.test_dataset):

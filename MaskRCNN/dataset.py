@@ -14,13 +14,13 @@ class GeneralizedDataset:
     target: dict(image_id(str), boxes(tensor int16), masks(tensor uint8))
     """
 
-    def __init__(self, data_dir, train=False, filenum=25, getmask= False, expandmask=False, imagesize=256):
+    def __init__(self, data_dir, train=False, filestart=0, filenum=25, getmask= False, expandmask=False, imagesize=256):
         self.data_dir = data_dir
         self.train = train
         self.expandmask = expandmask
         self.getmask = getmask
         self.imagesize = imagesize
-        self.ids = ["%03d" % i + "%03d" % j for i in [*range(filenum)] for j in [*range(200)]]
+        self.ids = ["%03d" % i + "%03d" % j for i in [*range(filestart, filenum)] for j in [*range(200)]]
 
     def __getitem__(self, i):
         img_id = self.ids[i]  # filename number 000-049 and index number 000-199
