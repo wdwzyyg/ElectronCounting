@@ -81,7 +81,7 @@ class Mathlayers(nn.Module):
         super().__init__()
 
     def forward(self, x):
-        a = torch.clip(map01(torch.log(x + 0.01)), 0.1)
+        a = torch.clip(map01(torch.log(x + 0.01)), 0.15)
         b = torch.clip(map01(torch.sqrt(x)), 0.1)
         c = torch.clip(map01(torch.cat(list(torch.gradient(x, dim=[-1, -2])), dim=1)), 0.1)
         res = torch.cat((a, b, c), dim=1)
@@ -94,13 +94,15 @@ class MathBackbone(nn.Module):
         self.channel2one = channellayer()
         self.math = Mathlayers()
         self.math2 = Mathlayers()
-        self.out_channels = 16
+        self.out_channels = 32
 
     def forward(self, x):
         x = self.channel2one(x)
+        raw = torch.cat((x,)*16, dim=1)
         x = self.math(x)
         x = self.math2(x)
-        return x
+        combo = torch.cat((raw, x), dim=1)
+        return combo
 
 
 def faster_rcnn_math(num_classes, setting_dict):
