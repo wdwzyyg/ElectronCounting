@@ -63,6 +63,12 @@ class Validator:
                                          facecolor='none')
                 ax1.add_patch(rect)
             ax2.imshow(feature_, origin='lower')
+            box_gt = t[0]['boxes']
+            for box in box_gt:
+                xmin, ymin, xmax, ymax = box
+                rect = patches.Rectangle((xmin - 0.5, ymin - 0.5), xmax - xmin, ymax - ymin, linewidth=1, edgecolor='r',
+                                         facecolor='none')
+                ax2.add_patch(rect)
             plt.show()
 
     def calculate_F1(self, threshold_IoU):
