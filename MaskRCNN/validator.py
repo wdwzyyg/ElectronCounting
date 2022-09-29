@@ -44,6 +44,11 @@ class Validator:
                 boxes = self.model_object.rpn(images, y, targets)[0][0]
             elif self.test_part == 'all':
                 boxes = self.model_object(im)[0]['boxes']
+                images, targets = self.model_object.transform(im, t)
+                y = self.model_object.backbone(images.tensors)
+                if isinstance(y, torch.Tensor):
+                    y = OrderedDict([("0", y)])
+
             self.boxes_list.append(boxes)
             self.featuremap_list.append(y['0'][0, 0])
 
