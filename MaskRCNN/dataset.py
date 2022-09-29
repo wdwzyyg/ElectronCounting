@@ -14,12 +14,13 @@ class GeneralizedDataset:
     target: dict(image_id(str), boxes(tensor int16), masks(tensor uint8))
     """
 
-    def __init__(self, data_dir, train=False, filestart=0, filenum=25, getmask= False, expandmask=False, imagesize=256):
+    def __init__(self, data_dir, train=False, filestart=0, filenum=25, upsample=1, getmask= False, expandmask=False, imagesize=256):
         self.data_dir = data_dir
         self.train = train
         self.expandmask = expandmask
         self.getmask = getmask
         self.imagesize = imagesize
+        self.upsample = upsample
         self.ids = ["%03d" % i + "%03d" % j for i in [*range(filestart, filenum)] for j in [*range(200)]]
 
     def __getitem__(self, i):
@@ -36,8 +37,10 @@ class GeneralizedDataset:
         image = np.load(path)['arr_' + str(int(img_id[3:]))]
         image = map01(image)
         image = torch.tensor(image, dtype=torch.float32)
-        image = image[None, :]  # add channel dimension [C, H, W]
-        return image
+        image = image[None, None, ...]
+        if self.upsample > 1:
+            image = torch.nn.Upsample(scale_factor=self.upsample, mode='bilinear')(image)
+        return image[0]  # return dimension [C, H, W]
 
     def get_target(self, img_id):
         # boxes format is: x.min, y.min, x.max, y.max
@@ -57,6 +60,9 @@ class GeneralizedDataset:
         # the x and y in boxes seems to wrong. Swap here.
         boxes[:, [0, 1]] = boxes[:, [1, 0]]
         boxes[:, [2, 3]] = boxes[:, [3, 2]]
+
+        if self.upsample > 1:
+            boxes = boxes*self.upsample
 
         if self.getmask:
 

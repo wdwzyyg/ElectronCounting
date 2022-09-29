@@ -35,7 +35,7 @@ class ConvBlock(nn.Module):
     def __init__(self,
                  ndim: int, nb_layers: int,
                  input_channels: int, output_channels: int,
-                 kernel_size: Union[Tuple[int], int] = 3,
+                 kernel_size: Union[Tuple[int], int] = 1 ,
                  stride: Union[Tuple[int], int] = 1,
                  padding: Union[Tuple[int], int] = 1,
                  batch_norm: bool = False, lrelu_a: float = 0.01,
@@ -164,13 +164,13 @@ class ResBlock(nn.Module):
                        padding_mode='circular')
         self.c1 = conv(output_channels,
                        output_channels,
-                       kernel_size=3,
+                       kernel_size=1,
                        stride=1,
                        padding=1,
                        padding_mode='circular')
         self.c2 = conv(output_channels,
                        output_channels,
-                       kernel_size=3,
+                       kernel_size=1,
                        stride=1,
                        padding=1,
                        padding_mode='circular')
