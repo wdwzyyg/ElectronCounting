@@ -71,10 +71,12 @@ class AnchorGenerator(nn.Module):
         return base_anchors.round()
 
     def set_cell_anchors(self, dtype: torch.dtype, device: torch.device):
-        temp = torch.unique(self.cell_anchors[0], dim=0)
-        rows = torch.where((temp[:, 0] != temp[:, 2]) | (temp[:, 1] != temp[:, 3]))
-        temp = temp[rows]
-        self.cell_anchors = [temp.to(dtype=dtype, device=device)]
+        templist = []
+        for it in self.cell_anchors:
+            temp = torch.unique(it.to(dtype=dtype, device=device), dim=0)
+            rows = torch.where((temp[:, 0] != temp[:, 2]) | (temp[:, 1] != temp[:, 3]))
+            templist.append(temp[rows])
+        self.cell_anchors = templist
 
     def num_anchors_per_location(self):
         return [len(s) * len(a) for s, a in zip(self.sizes, self.aspect_ratios)]
