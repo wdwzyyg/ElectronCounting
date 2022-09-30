@@ -67,7 +67,7 @@ class FCNBackbone(nn.Sequential):
 
     def forward(self, x):
         x = self.channel2one(x)
-        x = TinySegResNet(x)
+        x = self.fcov(x)
         return x
 
 
@@ -167,7 +167,7 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
     for layer in backboneFPN.fpn.layer_blocks:
         list(layer.children())[0].padding_mode = 'circular'
 
-    anchor_generator = AnchorGenerator(sizes=((1, 2,),) * 4, aspect_ratios=((0.25, 1, 2),) * 4, stride_multiplier=1)
+    anchor_generator = AnchorGenerator(sizes=((1, 2, 4),) * 4, aspect_ratios=((0.5, 1, 2),) * 4, stride_multiplier=1)
     box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "pool"], output_size=7, sampling_ratio=2)
     rpn_head = RPNHead(backbone.out_channels, anchor_generator.num_anchors_per_location()[0])
 
