@@ -100,8 +100,9 @@ class GeneralizedRCNNTransform(nn.Module):
         self.image_mean = image_mean
         self.image_std = image_std
         self.size_divisible = size_divisible
-        self.fixed_size = fixed_size
+        self.fixed_size = fixed_size  # the final size after resize
         self._skip_resize = kwargs.pop("_skip_resize", False)
+        self.crop_max = kwargs.get("crop_max", None)  # the H/W size of image after crop
 
     def forward(
         self, images: List[Tensor], targets: Optional[List[Dict[str, Tensor]]] = None
@@ -128,6 +129,8 @@ class GeneralizedRCNNTransform(nn.Module):
             if self.if_normalize:
                 image = self.normalize(image)
             image, target_index = self.resize(image, target_index)
+            if self.crop_max is not None:
+                image, target_index = self.crop(image, target_index)
             images[i] = image
             if targets is not None and target_index is not None:
                 targets[i] = target_index
@@ -164,6 +167,27 @@ class GeneralizedRCNNTransform(nn.Module):
         """
         index = int(torch.empty(1).uniform_(0.0, float(len(k))).item())
         return k[index]
+
+    def crop(
+        self,
+        image: Tensor,
+        target: Optional[Dict[str, Tensor]] = None,
+    ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
+        h, w = image.shape[-2:]
+        image = image[:, :self.cropmax, :self.cropmax]
+
+        if target is None:
+            return image, target
+
+        bbox = target["boxes"]
+        select = []
+        crop_decision = bbox < self.crop_max
+        for row, value in enumerate(crop_decision):
+            if value.all():
+                select.append(row)
+        bbox = torch.index_select(bbox, 0, torch.tensor(select))
+        target["boxes"] = bbox
+        return image, target
 
     def resize(
         self,
