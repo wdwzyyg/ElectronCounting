@@ -174,7 +174,7 @@ class GeneralizedRCNNTransform(nn.Module):
         image: Tensor,
         target: Optional[Dict[str, Tensor]] = None,
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
-        h, w = image.shape[-2:]
+        dtype, device = image.dtype, image.device
         image = image[:, :self.crop_max, :self.crop_max]
 
         if target is None:
@@ -186,7 +186,8 @@ class GeneralizedRCNNTransform(nn.Module):
         for row, value in enumerate(crop_decision):
             if value.all():
                 select.append(row)
-        bbox = torch.index_select(bbox, 0, torch.tensor(select))
+        select = torch.as_tensor(select, dtype=dtype, device=device)
+        bbox = torch.index_select(bbox, 0, select)
         target["boxes"] = bbox
         return image, target
 
