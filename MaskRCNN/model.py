@@ -67,7 +67,7 @@ class FCNBackbone(nn.Sequential):
 
     def forward(self, x):
         x = self.channel2one(x)
-        x = self.fcov(x)
+        x = self.TinySegResNet(x)
         return x
 
 

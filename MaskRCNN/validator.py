@@ -35,6 +35,8 @@ class Validator:
             if i == self.sample:
                 break
             im = list(im_.to(self.device) for im_ in im)
+            t = [{k: v.to(self.device) for k, v in tt.items()} for tt in t]
+
             if self.test_part == 'rpn':
                 images, targets = self.model_object.transform(im, t)
                 # y = (self.model_object.backbone(images.tensors))
@@ -52,7 +54,7 @@ class Validator:
             self.boxes_list.append(boxes)
             self.featuremap_list.append(y['0'][0, 0])
 
-    def visualize(self):
+    def visualize(self, if_save, **kwargs):
         for i, (im, t) in enumerate(self.test_dataset):
             if i == self.sample:
                 break
@@ -60,8 +62,10 @@ class Validator:
             if self.device == torch.device("cuda"):
                 pred_ = self.boxes_list[i].detach().cpu().numpy()
                 feature_ = self.featuremap_list[i].detach().cpu().numpy()
+
+            images, targets = self.model_object.transform(im, t)
             ax1, ax2 = fig.subplots(1, 2)
-            ax1.imshow(im[0][0], origin='lower')
+            ax1.imshow(images.tensors[0][0], origin='lower')
             for box in pred_:
                 xmin, ymin, xmax, ymax = box
                 rect = patches.Rectangle((xmin - 0.5, ymin - 0.5), xmax - xmin, ymax - ymin, linewidth=1, edgecolor='r',
@@ -75,6 +79,8 @@ class Validator:
                                          facecolor='none')
                 ax2.add_patch(rect)
             plt.show()
+            if if_save:
+                plt.savefig(kwargs.get('savepath'))
 
     def calculate_F1(self, threshold_IoU):
         Plist = []
