@@ -186,7 +186,7 @@ class GeneralizedRCNNTransform(nn.Module):
         for row, value in enumerate(crop_decision):
             if value.all():
                 select.append(row)
-        select = torch.as_tensor(select, dtype=dtype, device=device)
+        select = torch.as_tensor(select, dtype=torch.int, device=device)
         bbox = torch.index_select(bbox, 0, select)
         target["boxes"] = bbox
         return image, target
