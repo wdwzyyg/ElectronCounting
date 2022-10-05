@@ -175,7 +175,7 @@ class GeneralizedRCNNTransform(nn.Module):
         target: Optional[Dict[str, Tensor]] = None,
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         h, w = image.shape[-2:]
-        image = image[:, :self.cropmax, :self.cropmax]
+        image = image[:, :self.crop_max, :self.crop_max]
 
         if target is None:
             return image, target
