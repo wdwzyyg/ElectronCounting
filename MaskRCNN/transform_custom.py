@@ -104,7 +104,6 @@ class GeneralizedRCNNTransform(nn.Module):
         self.size_divisible = size_divisible
         self.fixed_size = fixed_size  # the final size after resize
         self._skip_resize = kwargs.pop("_skip_resize", False)
-        self.crop_max = kwargs.get("crop_max", None)  # the H/W size of image after crop
 
     def forward(
         self, images: List[Tensor], targets: Optional[List[Dict[str, Tensor]]] = None
