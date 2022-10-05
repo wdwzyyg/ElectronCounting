@@ -88,6 +88,7 @@ class GeneralizedRCNNTransform(nn.Module):
         image_mean: List[float],
         image_std: List[float],
         size_divisible: int = 32,
+        crop_max: int = 64,
         fixed_size: Optional[Tuple[int, int]] = None,
         **kwargs: Any,
     ):
@@ -97,6 +98,7 @@ class GeneralizedRCNNTransform(nn.Module):
         self.if_normalize = if_normalize
         self.min_size = min_size
         self.max_size = max_size
+        self.crop_max = crop_max
         self.image_mean = image_mean
         self.image_std = image_std
         self.size_divisible = size_divisible
@@ -129,7 +131,7 @@ class GeneralizedRCNNTransform(nn.Module):
             if self.if_normalize:
                 image = self.normalize(image)
             image, target_index = self.resize(image, target_index)
-            if self.crop_max is not None:
+            if self.crop_max < image.shape[-1]:
                 image, target_index = self.crop(image, target_index)
             images[i] = image
             if targets is not None and target_index is not None:
