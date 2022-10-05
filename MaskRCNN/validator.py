@@ -64,13 +64,15 @@ class Validator:
                 feature_ = self.featuremap_list[i].detach().cpu().numpy()
 
             images, targets = self.model_object.transform(im, t)
-            ax1, ax2 = fig.subplots(1, 2)
+            fig = plt.figure(figsize=(6, 4))
+            ax1 = fig.add_subplot(1, 2, 1)
             ax1.imshow(images.tensors[0][0], origin='lower')
             for box in pred_:
                 xmin, ymin, xmax, ymax = box
                 rect = patches.Rectangle((xmin - 0.5, ymin - 0.5), xmax - xmin, ymax - ymin, linewidth=1, edgecolor='r',
                                          facecolor='none')
                 ax1.add_patch(rect)
+            ax2 = fig.add_subplot(1, 2, 2)
             ax2.imshow(feature_, origin='lower')
             box_gt = t[0]['boxes']
             for box in box_gt:
@@ -80,7 +82,7 @@ class Validator:
                 ax2.add_patch(rect)
             plt.show()
             if if_save:
-                plt.savefig(kwargs.get('savepath'))
+                fig.savefig(kwargs.get('savepath'))
 
     def calculate_F1(self, threshold_IoU):
         Plist = []

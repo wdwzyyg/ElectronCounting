@@ -65,7 +65,7 @@ def plot_train_history(checkpoint_paths):
     for k, key in enumerate(keys):
         fig.add_subplot(1, len(keys), k+1)
         for j in range(ckps):
-            plt.scatter(np.arange(num) + j * num, losses_dict[key][j], s=2, alpha=1 - 0.5 * j / num)
+            plt.plot(np.arange(num) + j * num, losses_dict[key][j], lw=1, alpha=1 - 0.5 * j / num)
         plt.xlabel('iters')
         plt.ylabel(key)
 
