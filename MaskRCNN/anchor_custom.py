@@ -79,7 +79,8 @@ class AnchorGenerator(nn.Module):
         self.cell_anchors = templist
 
     def num_anchors_per_location(self):
-        return [len(s) * len(a) for s, a in zip(self.sizes, self.aspect_ratios)]
+        return [cc.size()[0] for cc in self.cell_anchors]
+        # return [len(s) * len(a) for s, a in zip(self.sizes, self.aspect_ratios)]
 
     # For every combination of (a, (g, s), i) in (self.cell_anchors, zip(grid_sizes, strides), 0:2),
     # output g[i] anchors that are s[i] distance apart in direction i, with the same dimensions as a.
