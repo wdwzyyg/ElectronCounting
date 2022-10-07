@@ -79,6 +79,7 @@ class AnchorGenerator(nn.Module):
         self.cell_anchors = templist
 
     def num_anchors_per_location(self):
+        self.set_cell_anchors(self.cell_anchors[0].dtype, self.cell_anchors[0].device)
         return [cc.size()[0] for cc in self.cell_anchors]
         # return [len(s) * len(a) for s, a in zip(self.sizes, self.aspect_ratios)]
 
