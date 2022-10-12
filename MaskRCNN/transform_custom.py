@@ -131,10 +131,10 @@ class GeneralizedRCNNTransform(nn.Module):
                 image = self.normalize(image)
             image, target_index = self.resize(image, target_index)
             if self.crop_max < image.shape[-1]:
-                image, target_index = self.crop(image, target_index)
+                image, target_crop = self.crop(image, target_index)
             images[i] = image
-            if targets is not None and target_index is not None:
-                targets[i] = target_index
+            if targets is not None and target_crop is not None:
+                targets[i] = target_crop
 
         image_sizes = [img.shape[-2:] for img in images]
         images = self.batch_images(images, size_divisible=self.size_divisible)
@@ -181,6 +181,7 @@ class GeneralizedRCNNTransform(nn.Module):
             return image, target
 
         bbox = target["boxes"]
+        ll = target["labels"]
         select = []
         crop_decision = bbox < self.crop_max
         for row, value in enumerate(crop_decision):
@@ -188,7 +189,9 @@ class GeneralizedRCNNTransform(nn.Module):
                 select.append(row)
         select = torch.as_tensor(select, dtype=torch.int, device=device)
         bbox = torch.index_select(bbox, 0, select)
+        ll = torch.index_select(ll, 0, select)
         target["boxes"] = bbox
+        target["labels"] = ll
         return image, target
 
     def resize(
