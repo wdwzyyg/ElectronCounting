@@ -27,6 +27,8 @@ class Validator:
         self.boxes_list = []
         self.featuremap_list = []
         self.sample = sample
+        self.im_list = []
+        self.t_list = []
 
     @torch.no_grad()
     def predict(self):
@@ -39,6 +41,8 @@ class Validator:
 
             if self.test_part == 'rpn':
                 images, targets = self.model_object.transform(im, t)
+                self.im_list.append(images)
+                self.t_list.append(targets)
                 # y = (self.model_object.backbone(images.tensors))
                 y = self.model_object.backbone(images.tensors)
                 if isinstance(y, torch.Tensor):
@@ -47,6 +51,8 @@ class Validator:
             elif self.test_part == 'all':
                 boxes = self.model_object(im)[0]['boxes']
                 images, targets = self.model_object.transform(im, t)
+                self.im_list.append(images)
+                self.t_list.append(targets)
                 y = self.model_object.backbone(images.tensors)
                 if isinstance(y, torch.Tensor):
                     y = OrderedDict([("0", y)])
@@ -55,15 +61,15 @@ class Validator:
             self.featuremap_list.append(y['0'][0, 0])
 
     def visualize(self, if_save, **kwargs):
-        for i, (im, t) in enumerate(self.test_dataset):
+        for i, (_, _) in enumerate(self.test_dataset):
             if i == self.sample:
                 break
-            fig = plt.figure(figsize=(8, 8))
             if self.device == torch.device("cuda"):
                 pred_ = self.boxes_list[i].detach().cpu().numpy()
                 feature_ = self.featuremap_list[i].detach().cpu().numpy()
 
-            images, targets = self.model_object.transform(im, t)
+            images = self.im_list[i]
+            t = self.t_list[i]
             fig = plt.figure(figsize=(6, 4))
             ax1 = fig.add_subplot(1, 2, 1)
             ax1.imshow(images.tensors[0][0], origin='lower')
@@ -88,13 +94,12 @@ class Validator:
         Plist = []
         Rlist = []
         F1list = []
-        for i, (_, t) in enumerate(self.test_dataset):
+        for i, (_, _) in enumerate(self.test_dataset):
             if i == self.sample:
                 break
-            t = [{k: v.to(self.device) for k, v in t.items()} for t in t]
             nums_pred = self.boxes_list[i].size()[0]
             print('Detected: ', nums_pred)
-            box_gt = t[0]['boxes']
+            box_gt = self.t_list[i][0]['boxes']
             nums_gt = box_gt.size()[0]
             print('Ground truth: ', nums_gt)
 
