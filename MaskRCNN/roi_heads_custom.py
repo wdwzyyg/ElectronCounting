@@ -654,7 +654,6 @@ class RoIHeads(nn.Module):
             proposals,  # type: List[Tensor]
             targets,  # type: Optional[List[Dict[str, Tensor]]]
     ):
-        # type: (...) -> Tuple[List[Tensor], List[Tensor], List[Tensor], List[Tensor]]
         self.check_targets(targets)
         if targets is None:
             raise ValueError("targets should not be None")
@@ -674,9 +673,10 @@ class RoIHeads(nn.Module):
         sampled_inds = self.subsample(labels)
         matched_gt_boxes = []
         num_images = len(proposals)
+        proposals_selected = proposals
         for img_id in range(num_images):
             img_sampled_inds = sampled_inds[img_id]
-            proposals[img_id] = proposals[img_id][img_sampled_inds]
+            proposals_selected[img_id] = proposals[img_id][img_sampled_inds]
             labels[img_id] = labels[img_id][img_sampled_inds]
             matched_idxs[img_id] = matched_idxs[img_id][img_sampled_inds]
 
@@ -685,8 +685,8 @@ class RoIHeads(nn.Module):
                 gt_boxes_in_image = torch.zeros((1, 4), dtype=dtype, device=device)
             matched_gt_boxes.append(gt_boxes_in_image[matched_idxs[img_id]])
 
-        regression_targets = self.box_coder.encode(matched_gt_boxes, proposals)
-        return proposals, matched_idxs, labels, regression_targets, gt_sets, proposal_index_sets
+        regression_targets = self.box_coder.encode(matched_gt_boxes, proposals_selected)
+        return proposals_selected, matched_idxs, labels, regression_targets, proposals, gt_sets, proposal_index_sets
 
     def postprocess_detections(
             self,
@@ -775,14 +775,14 @@ class RoIHeads(nn.Module):
                         raise TypeError(f"target keypoints must of float type, instead got {t['keypoints'].dtype}")
 
         if self.training:
-            proposals, matched_idxs, labels, regression_targets, gt_sets, proposal_index_sets = \
+            proposals_selected, matched_idxs, labels, regression_targets, proposals, gt_sets, proposal_index_sets = \
                 self.select_training_samples(proposals, targets)
         else:
             labels = None
             regression_targets = None
             matched_idxs = None
 
-        box_features = self.box_roi_pool(features, proposals, image_shapes)
+        box_features = self.box_roi_pool(features, proposals_selected, image_shapes)
         box_features = self.box_head(box_features)
         class_logits, box_regression = self.box_predictor(box_features)
 
@@ -805,7 +805,7 @@ class RoIHeads(nn.Module):
                                                           avg_pred_bbox, compact_targets, self.box_loss)
             losses = {"loss_classifier": loss_classifier, "loss_box_reg": loss_box_reg}
         else:
-            boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals, image_shapes)
+            boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals_selected, image_shapes)
             num_images = len(boxes)
             for i in range(num_images):
                 result.append(
@@ -823,12 +823,12 @@ class RoIHeads(nn.Module):
                     raise ValueError("if in trainning, matched_idxs should not be None")
 
                 # during training, only focus on positive boxes
-                num_images = len(proposals)
+                num_images = len(proposals_selected)
                 mask_proposals = []
                 pos_matched_idxs = []
                 for img_id in range(num_images):
                     pos = torch.where(labels[img_id] > 0)[0]
-                    mask_proposals.append(proposals[img_id][pos])
+                    mask_proposals.append(proposals_selected[img_id][pos])
                     pos_matched_idxs.append(matched_idxs[img_id][pos])
             else:
                 pos_matched_idxs = None
@@ -867,7 +867,7 @@ class RoIHeads(nn.Module):
             keypoint_proposals = [p["boxes"] for p in result]
             if self.training:
                 # during training, only focus on positive boxes
-                num_images = len(proposals)
+                num_images = len(proposals_selected)
                 keypoint_proposals = []
                 pos_matched_idxs = []
                 if matched_idxs is None:
@@ -875,7 +875,7 @@ class RoIHeads(nn.Module):
 
                 for img_id in range(num_images):
                     pos = torch.where(labels[img_id] > 0)[0]
-                    keypoint_proposals.append(proposals[img_id][pos])
+                    keypoint_proposals.append(proposals_selected[img_id][pos])
                     pos_matched_idxs.append(matched_idxs[img_id][pos])
             else:
                 pos_matched_idxs = None
