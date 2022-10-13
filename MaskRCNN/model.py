@@ -173,7 +173,7 @@ def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
 
     resolution = box_roi_pool.output_size[0]  # 7
     representation_size = 1024
-    box_head = TwoMLPHead(backbone.out_channels * resolution ** 2, representation_size)  # (2*7^2, 1024)
+    box_head = TwoMLPHead(backbone.out_channels * resolution ** 2, representation_size)  # (64*7^2, 1024)
     # box_predictor = FastRCNNPredictor(representation_size, num_classes=None)
 
     # load an instance segmentation model pre-trained on COCO
