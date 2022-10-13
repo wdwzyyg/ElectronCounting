@@ -617,7 +617,7 @@ class RoIHeads(nn.Module):
 
             matched_idxs.append(matched_idxs_in_image.clamp(min=0))
             labels.append(labels_in_image)
-            gt_sets.append(gt_boxes[gt_index_set])
+            gt_sets.append(gt_boxes_in_image[gt_index_set])
             proposal_index_sets.append(proposal_index_set)
 
         return matched_idxs, labels, gt_sets, proposal_index_sets
