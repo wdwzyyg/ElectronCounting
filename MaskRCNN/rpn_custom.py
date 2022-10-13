@@ -147,7 +147,8 @@ class RegionProposalNetwork(torch.nn.Module):
             anchor_generator: AnchorGenerator,
             head: nn.Module,
             # Faster-RCNN Training
-            loss: str,
+            rpn_loss: str,
+            iou_cpu: False,
             fg_iou_thresh: float,
             bg_iou_thresh: float,
             batch_size_per_image: int,
@@ -171,7 +172,8 @@ class RegionProposalNetwork(torch.nn.Module):
             bg_iou_thresh,
             allow_low_quality_matches=True,
         )
-        self.loss = loss
+        self.rpn_loss = rpn_loss
+        self.iou_cpu = iou_cpu
         self.fg_bg_sampler = det_utils.BalancedPositiveNegativeSampler(batch_size_per_image, positive_fraction)
         # used during testing
         self._pre_nms_top_n = pre_nms_top_n
@@ -191,7 +193,7 @@ class RegionProposalNetwork(torch.nn.Module):
         return self._post_nms_top_n["testing"]
 
     def assign_targets_to_anchors(self,
-                                  anchors: List[Tensor], targets: List[Dict[str, Tensor]]
+                                  anchors: List[Tensor], targets: List[Dict[str, Tensor]], force_cpu,
                                   ) -> Tuple[List[Tensor], List[List[Tensor]]]:
 
         labels = []
@@ -207,8 +209,17 @@ class RegionProposalNetwork(torch.nn.Module):
                 matched_gt_boxes_per_image = torch.zeros(anchors_per_image.shape, dtype=torch.float32, device=device)
                 labels_per_image = torch.zeros((anchors_per_image.shape[0],), dtype=torch.float32, device=device)
             else:
+                if force_cpu:
+                    ori_device = gt_boxes.device
+                    gt_boxes = gt_boxes.cpu()
+                    anchors_per_image = anchors_per_image.cpu()
+
                 match_quality_matrix = self.box_similarity(gt_boxes, anchors_per_image)
                 matched_idxs = self.proposal_matcher(match_quality_matrix)
+
+                if force_cpu:
+                    matched_idxs = matched_idxs.to(ori_device)
+
                 # get the set of gt that are matched to more than one anchor
                 # and get the anchor sets that are matched to each of those gts.
                 (gt_index_set, anchors_to_gt, counts) = torch.unique(matched_idxs.clamp(min=0),
@@ -430,9 +441,9 @@ class RegionProposalNetwork(torch.nn.Module):
         if self.training:
             if targets is None:
                 raise ValueError("targets should not be None")
-            labels, matched_gt_boxes, gt_sets, anchor_index_sets = self.assign_targets_to_anchors(anchors, targets)
+            labels, matched_gt_boxes, gt_sets, anchor_index_sets = self.assign_targets_to_anchors(anchors, targets, self.iou_cpu)
             regression_targets = self.box_coder.encode(matched_gt_boxes, anchors)
-            if self.loss is not None and self.loss == 'Agg':
+            if self.rpn_loss is not None and self.rpn_loss == 'Agg':
                 anchor_sets = []
                 for i, anchor_per_image in enumerate(anchors):
                     anchor_set = [torch.mean(anchor_per_image[index], dim=0) for index in anchor_index_sets[i]]

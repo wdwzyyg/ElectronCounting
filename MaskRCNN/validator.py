@@ -67,12 +67,15 @@ class Validator:
             if self.device == torch.device("cuda"):
                 pred_ = self.boxes_list[i].detach().cpu().numpy()
                 feature_ = self.featuremap_list[i].detach().cpu().numpy()
-
+                box_gt = self.t_list[i][0]['boxes'].detach().cpu().numpy()
+            else:
+                pred_ = self.boxes_list[i]
+                feature_ = self.featuremap_list[i]
+                box_gt = self.t_list[i][0]['boxes']
             images = self.im_list[i]
-            t = self.t_list[i]
             fig = plt.figure(figsize=(6, 4))
             ax1 = fig.add_subplot(1, 2, 1)
-            ax1.imshow(images.tensors[0][0], origin='lower')
+            ax1.imshow(images.tensors[0][0].detach().cpu().numpy(), origin='lower')
             for box in pred_:
                 xmin, ymin, xmax, ymax = box
                 rect = patches.Rectangle((xmin - 0.5, ymin - 0.5), xmax - xmin, ymax - ymin, linewidth=1, edgecolor='r',
@@ -80,7 +83,6 @@ class Validator:
                 ax1.add_patch(rect)
             ax2 = fig.add_subplot(1, 2, 2)
             ax2.imshow(feature_, origin='lower')
-            box_gt = t[0]['boxes']
             for box in box_gt:
                 xmin, ymin, xmax, ymax = box
                 rect = patches.Rectangle((xmin - 0.5, ymin - 0.5), xmax - xmin, ymax - ymin, linewidth=1, edgecolor='r',
