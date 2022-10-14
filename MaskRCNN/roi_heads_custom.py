@@ -16,6 +16,7 @@ def fastrcnn_loss(class_logits, box_regression, labels, regression_targets, avg_
 
     labels = torch.cat(labels, dim=0)
     regression_targets = torch.cat(regression_targets, dim=0)
+    compact_targets = torch.cat(compact_targets, dim=0)
 
     classification_loss = F.cross_entropy(class_logits, labels)
 
@@ -36,10 +37,10 @@ def fastrcnn_loss(class_logits, box_regression, labels, regression_targets, avg_
     box_loss = box_loss / labels.numel()
 
     if select_loss is not None and select_loss == 'Agg':
-        compact_targets = compact_targets.reshape(N, box_regression.size(-1) // 4, 4)
+        avg_pred_bbox = avg_pred_bbox.reshape(avg_pred_bbox.size()[0], avg_pred_bbox.size(-1) // 4, 4)
         compact_loss = (
                 F.smooth_l1_loss(
-                    avg_pred_bbox,
+                    avg_pred_bbox[:, labels_pos[0]],
                     compact_targets,
                     beta=1 / 9,
                     reduction="sum",
@@ -664,19 +665,19 @@ class RoIHeads(nn.Module):
         gt_labels = [t["labels"] for t in targets]
 
         # append ground-truth bboxes to propos
-        proposals = self.add_gt_proposals(proposals, gt_boxes)
-
+        temp = self.add_gt_proposals(proposals,
+                                                gt_boxes)  # this is the whole proposals before selecting samples
         # get matching gt indices for each proposal
         matched_idxs, labels, gt_sets, proposal_index_sets = self.assign_targets_to_proposals(
-            proposals, gt_boxes, gt_labels, self.iou_cpu)
+            temp, gt_boxes, gt_labels, self.iou_cpu)
         # sample a fixed proportion of positive-negative proposals
         sampled_inds = self.subsample(labels)
         matched_gt_boxes = []
-        num_images = len(proposals)
-        proposals_selected = proposals
+        num_images = len(temp)
+        proposals = [torch.clone(it) for it in temp]
         for img_id in range(num_images):
             img_sampled_inds = sampled_inds[img_id]
-            proposals_selected[img_id] = proposals[img_id][img_sampled_inds]
+            proposals[img_id] = proposals[img_id][img_sampled_inds]
             labels[img_id] = labels[img_id][img_sampled_inds]
             matched_idxs[img_id] = matched_idxs[img_id][img_sampled_inds]
 
@@ -685,8 +686,8 @@ class RoIHeads(nn.Module):
                 gt_boxes_in_image = torch.zeros((1, 4), dtype=dtype, device=device)
             matched_gt_boxes.append(gt_boxes_in_image[matched_idxs[img_id]])
 
-        regression_targets = self.box_coder.encode(matched_gt_boxes, proposals_selected)
-        return proposals_selected, matched_idxs, labels, regression_targets, proposals, gt_sets, proposal_index_sets
+        regression_targets = self.box_coder.encode(matched_gt_boxes, proposals)
+        return sampled_inds, matched_idxs, labels, regression_targets, temp, gt_sets, proposal_index_sets
 
     def postprocess_detections(
             self,
@@ -775,16 +776,18 @@ class RoIHeads(nn.Module):
                         raise TypeError(f"target keypoints must of float type, instead got {t['keypoints'].dtype}")
 
         if self.training:
-            proposals_selected, matched_idxs, labels, regression_targets, proposals, gt_sets, proposal_index_sets = \
+            sampled_inds, matched_idxs, labels, regression_targets, temp, gt_sets, proposal_index_sets = \
                 self.select_training_samples(proposals, targets)
         else:
             labels = None
             regression_targets = None
             matched_idxs = None
 
-        box_features = self.box_roi_pool(features, proposals_selected, image_shapes)
+        box_features = self.box_roi_pool(features, temp, image_shapes)
         box_features = self.box_head(box_features)
-        class_logits, box_regression = self.box_predictor(box_features)
+        class_logits_all, box_regression_all = self.box_predictor(box_features)
+        class_logits = class_logits_all[torch.cat(sampled_inds)]
+        box_regression = box_regression_all[torch.cat(sampled_inds)]  # not sure if these work for batch>1
 
         result: List[Dict[str, torch.Tensor]] = []
         losses = {}
@@ -798,14 +801,16 @@ class RoIHeads(nn.Module):
                 proposal_set = [torch.mean(proposal_per_image[index], dim=0) for index in proposal_index_sets[i]]
                 proposal_sets.append(torch.stack(proposal_set))
             compact_targets = self.box_coder.encode(gt_sets, proposal_sets)
-            avg_pred_bbox = [torch.mean(box_regression[index], dim=0) for index in proposal_index_sets[i]]
+            avg_pred_bbox = [torch.mean(box_regression_all[index], dim=0) for index in proposal_index_sets[i]]
             avg_pred_bbox = torch.stack(avg_pred_bbox)
 
-            loss_classifier, loss_box_reg = fastrcnn_loss(class_logits, box_regression, labels, regression_targets,
-                                                          avg_pred_bbox, compact_targets, self.box_loss)
-            losses = {"loss_classifier": loss_classifier, "loss_box_reg": loss_box_reg}
+            loss_classifier, loss_box_reg, * loss_box_compact = fastrcnn_loss(
+                class_logits, box_regression, labels, regression_targets, avg_pred_bbox, compact_targets, self.box_loss)
+            for variable in ["loss_classifier", "loss_box_reg", "loss_box_compact"]:
+                losses[variable] = eval(variable)
         else:
-            boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals_selected, image_shapes)
+
+            boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals, image_shapes)
             num_images = len(boxes)
             for i in range(num_images):
                 result.append(
@@ -823,12 +828,12 @@ class RoIHeads(nn.Module):
                     raise ValueError("if in trainning, matched_idxs should not be None")
 
                 # during training, only focus on positive boxes
-                num_images = len(proposals_selected)
+                num_images = len(proposals)
                 mask_proposals = []
                 pos_matched_idxs = []
                 for img_id in range(num_images):
                     pos = torch.where(labels[img_id] > 0)[0]
-                    mask_proposals.append(proposals_selected[img_id][pos])
+                    mask_proposals.append(proposals[img_id][pos])
                     pos_matched_idxs.append(matched_idxs[img_id][pos])
             else:
                 pos_matched_idxs = None
@@ -867,7 +872,7 @@ class RoIHeads(nn.Module):
             keypoint_proposals = [p["boxes"] for p in result]
             if self.training:
                 # during training, only focus on positive boxes
-                num_images = len(proposals_selected)
+                num_images = len(proposals)
                 keypoint_proposals = []
                 pos_matched_idxs = []
                 if matched_idxs is None:
@@ -875,7 +880,7 @@ class RoIHeads(nn.Module):
 
                 for img_id in range(num_images):
                     pos = torch.where(labels[img_id] > 0)[0]
-                    keypoint_proposals.append(proposals_selected[img_id][pos])
+                    keypoint_proposals.append(proposals[img_id][pos])
                     pos_matched_idxs.append(matched_idxs[img_id][pos])
             else:
                 pos_matched_idxs = None
