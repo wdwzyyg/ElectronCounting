@@ -783,12 +783,6 @@ class RoIHeads(nn.Module):
             regression_targets = None
             matched_idxs = None
 
-        box_features = self.box_roi_pool(features, temp, image_shapes)
-        box_features = self.box_head(box_features)
-        class_logits_all, box_regression_all = self.box_predictor(box_features)
-        class_logits = class_logits_all[torch.cat(sampled_inds)]
-        box_regression = box_regression_all[torch.cat(sampled_inds)]  # not sure if these work for batch>1
-
         result: List[Dict[str, torch.Tensor]] = []
         losses = {}
         if self.training:
@@ -796,6 +790,13 @@ class RoIHeads(nn.Module):
                 raise ValueError("labels cannot be None")
             if regression_targets is None:
                 raise ValueError("regression_targets cannot be None")
+
+            box_features = self.box_roi_pool(features, temp, image_shapes)
+            box_features = self.box_head(box_features)
+            class_logits_all, box_regression_all = self.box_predictor(box_features)
+            class_logits = class_logits_all[torch.cat(sampled_inds)]
+            box_regression = box_regression_all[torch.cat(sampled_inds)]  # not sure if these work for batch>1
+
             proposal_sets = []
             for i, proposal_per_image in enumerate(temp):
                 proposal_set = [torch.mean(proposal_per_image[index], dim=0) for index in proposal_index_sets[i]]
@@ -811,6 +812,9 @@ class RoIHeads(nn.Module):
             if len(losses["loss_box_compact"]) != 0:
                 losses["loss_box_compact"] = losses["loss_box_compact"][0]
         else:
+            box_features = self.box_roi_pool(features, proposals, image_shapes)
+            box_features = self.box_head(box_features)
+            class_logits, box_regression = self.box_predictor(box_features)
 
             boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals, image_shapes)
             num_images = len(boxes)
