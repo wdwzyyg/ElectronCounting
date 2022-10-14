@@ -47,7 +47,7 @@ def fastrcnn_loss(class_logits, box_regression, labels, regression_targets, avg_
                 )
                 / (avg_pred_bbox.size()[0])
         )
-        return classification_loss, box_loss, compact_loss[0]
+        return classification_loss, box_loss, compact_loss
 
     return classification_loss, box_loss
 
@@ -808,6 +808,8 @@ class RoIHeads(nn.Module):
                 class_logits, box_regression, labels, regression_targets, avg_pred_bbox, compact_targets, self.box_loss)
             for variable in ["loss_classifier", "loss_box_reg", "loss_box_compact"]:
                 losses[variable] = eval(variable)
+            if len(losses["loss_box_compact"]) != 0:
+                losses["loss_box_compact"] = losses["loss_box_compact"][0]
         else:
 
             boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals, image_shapes)
