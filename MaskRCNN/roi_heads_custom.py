@@ -47,7 +47,7 @@ def fastrcnn_loss(class_logits, box_regression, labels, regression_targets, avg_
                 )
                 / (avg_pred_bbox.size()[0])
         )
-        return classification_loss, box_loss, compact_loss
+        return classification_loss, box_loss, compact_loss[0]
 
     return classification_loss, box_loss
 
