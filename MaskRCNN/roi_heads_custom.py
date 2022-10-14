@@ -797,7 +797,7 @@ class RoIHeads(nn.Module):
             if regression_targets is None:
                 raise ValueError("regression_targets cannot be None")
             proposal_sets = []
-            for i, proposal_per_image in enumerate(proposals):
+            for i, proposal_per_image in enumerate(temp):
                 proposal_set = [torch.mean(proposal_per_image[index], dim=0) for index in proposal_index_sets[i]]
                 proposal_sets.append(torch.stack(proposal_set))
             compact_targets = self.box_coder.encode(gt_sets, proposal_sets)
