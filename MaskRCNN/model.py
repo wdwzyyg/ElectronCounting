@@ -62,7 +62,7 @@ class FCNBackbone(nn.Sequential):
         self.kernel = kernel
         if self.kernel == 3:
             self.fcov = TinySegResNet_ori()
-        elif self.kernel == 3:
+        elif self.kernel == 1:
             self.fcov = TinySegResNet()
         else:
             raise ValueError("use kernel = 3 or 1")
