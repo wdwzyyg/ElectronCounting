@@ -9,7 +9,7 @@ from torchvision.ops import MultiScaleRoIAlign
 
 from MaskRCNN.anchor_custom import AnchorGenerator
 from MaskRCNN.faster_rcnn_custom import FasterRCNN, TwoMLPHead
-from MaskRCNN.fcn import TinySegResNet
+from MaskRCNN.fcn import TinySegResNet, TinySegResNet_ori
 
 
 def map01(raw):
@@ -55,9 +55,18 @@ class CovBackbone(nn.Sequential):
 
 
 class FCNBackbone(nn.Sequential):
-    def __init__(self):
+    def __init__(self,
+                 kernel: int = 3):
         super(FCNBackbone, self).__init__()
         self.channel2one = channellayer()
+        self.kernel = kernel
+        if self.kernel == 3:
+            self.fcov = TinySegResNet_ori()
+        elif self.kernel == 3:
+            self.fcov = TinySegResNet()
+        else:
+            raise ValueError("use kernel = 3 or 1")
+
         self.fcov = TinySegResNet()
         features: List[nn.Module] = [self.channel2one] + list(self.fcov.c1.block.children())[:1] + list(
             self.fcov.bn.res_module[0].children())[:3]
@@ -131,18 +140,20 @@ def faster_rcnn_math(num_classes, setting_dict):
     return model
 
 
-def faster_rcnn_fcn(pretrained, num_classes, weights_path, setting_dict):
+def faster_rcnn_fcn(kernel, pretrained, num_classes, weights_path, setting_dict):
     """
     Constructs a Mask R-CNN model with a ResNet-50 backbone.
 
     Arguments:
+        kernel(int): 3 or 1 for the cov layers in TinySegNet.
         pretrained (bool): If True, returns a model with pre-trained feature extraction layer.
         num_classes (int): number of classes (including the background).
         weights_path(directory str): the source model path for the feature extraction layers
         setting_dict: dict of all the model parameters
+
     """
 
-    backbone = FCNBackbone()
+    backbone = FCNBackbone(kernel=kernel)
 
     if pretrained:
         model_state_dict = torch.load(weights_path, map_location=torch.device('cpu'))
