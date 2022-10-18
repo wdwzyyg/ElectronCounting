@@ -67,7 +67,6 @@ class FCNBackbone(nn.Sequential):
         else:
             raise ValueError("use kernel = 3 or 1")
 
-        self.fcov = TinySegResNet()
         features: List[nn.Module] = [self.channel2one] + list(self.fcov.c1.block.children())[:1] + list(
             self.fcov.bn.res_module[0].children())[:3]
 
@@ -76,7 +75,7 @@ class FCNBackbone(nn.Sequential):
 
     def forward(self, x):
         x = self.channel2one(x)
-        x = self.TinySegResNet(x)
+        x = self.fcov(x)
         return x
 
 
