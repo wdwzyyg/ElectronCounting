@@ -103,7 +103,7 @@ class GeneralizedRCNNTransform(nn.Module):
         self.image_std = image_std
         self.size_divisible = size_divisible
         self.fixed_size = fixed_size  # the final size after resize
-        self._skip_resize = kwargs.pop("_skip_resize", False)
+        self._skip_resize = kwargs.get("_skip_resize", True)
 
     def forward(
         self, images: List[Tensor], targets: Optional[List[Dict[str, Tensor]]] = None
@@ -200,9 +200,9 @@ class GeneralizedRCNNTransform(nn.Module):
         target: Optional[Dict[str, Tensor]] = None,
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         h, w = image.shape[-2:]
+        if self._skip_resize:
+            return image, target
         if self.training:
-            if self._skip_resize:
-                return image, target
             size = float(self.torch_choice(self.min_size))
         else:
             # FIXME assume for now that testing uses the largest scale
@@ -279,6 +279,8 @@ class GeneralizedRCNNTransform(nn.Module):
         image_shapes: List[Tuple[int, int]],
         original_image_sizes: List[Tuple[int, int]],
     ) -> List[Dict[str, Tensor]]:
+        if self._skip_resize:
+            return result
         if self.training:
             return result
         for i, (pred, im_s, o_im_s) in enumerate(zip(result, image_shapes, original_image_sizes)):
