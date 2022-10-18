@@ -811,6 +811,8 @@ class RoIHeads(nn.Module):
                 losses[variable] = eval(variable)
             if len(losses["loss_box_compact"]) != 0:
                 losses["loss_box_compact"] = losses["loss_box_compact"][0]
+            else:
+                del losses["loss_box_compact"]
         else:
             box_features = self.box_roi_pool(features, proposals, image_shapes)
             box_features = self.box_head(box_features)
