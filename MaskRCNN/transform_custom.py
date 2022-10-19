@@ -132,6 +132,8 @@ class GeneralizedRCNNTransform(nn.Module):
             image, target_index = self.resize(image, target_index)
             if self.crop_max < image.shape[-1]:
                 image, target_crop = self.crop(image, target_index)
+            else:
+                target_crop = None
             images[i] = image
             if targets is not None and target_crop is not None:
                 targets[i] = target_crop
