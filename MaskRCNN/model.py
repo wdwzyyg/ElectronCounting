@@ -187,8 +187,8 @@ def faster_rcnn_fcn(kernel, pretrained, num_classes, weights_path, setting_dict)
     box_head = TwoMLPHead(backbone.out_channels * resolution ** 2, representation_size)  # (64*7^2, 1024)
     box_predictor = FastRCNNPredictor(representation_size, 2)
 
-    # load an instance segmentation model pre-trained on COCO
-    model = FasterRCNN(backbone=backboneFPN, num_classes=num_classes,
+    # num_classes = none since it is already defined in box_predictor
+    model = FasterRCNN(backbone=backboneFPN, num_classes=None,
                        rpn_anchor_generator=anchor_generator, rpn_head=rpn_head,
                        box_head=box_head, box_roi_pool=box_roi_pool, box_predictor=box_predictor,
                        **setting_dict)
