@@ -74,7 +74,7 @@ class Locator:
 
         return boxes_list
 
-    def forward(self, x: np.ndarray) -> List[torch.tensor]:
+    def __call__(self, x: np.ndarray) -> List[torch.tensor]:
         """
         input:x: [n, w, h]
         output: list of [N,4]
