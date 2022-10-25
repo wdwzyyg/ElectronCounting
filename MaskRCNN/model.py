@@ -8,7 +8,7 @@ from torchvision.models.detection.rpn import RPNHead
 from torchvision.ops import MultiScaleRoIAlign
 
 from MaskRCNN.anchor_custom import AnchorGenerator
-from MaskRCNN.faster_rcnn_custom import FasterRCNN, TwoMLPHead
+from MaskRCNN.faster_rcnn_custom import FasterRCNN, TwoMLPHead, FastRCNNPredictor
 from MaskRCNN.fcn import TinySegResNet, TinySegResNet_ori
 
 
@@ -178,18 +178,19 @@ def faster_rcnn_fcn(kernel, pretrained, num_classes, weights_path, setting_dict)
         list(layer.children())[0].padding_mode = 'circular'
 
     anchor_generator = AnchorGenerator(sizes=((1, 2, 4),) * 4, aspect_ratios=((0.5, 1, 2),) * 4, stride_multiplier=1)
-    box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "pool"], output_size=7, sampling_ratio=2)
+    box_roi_pool = MultiScaleRoIAlign(featmap_names=["0", "1", "2", "pool"], output_size=5, sampling_ratio=4,
+                                      canonical_scale=64, canonical_level=0)
     rpn_head = RPNHead(backbone.out_channels, anchor_generator.num_anchors_per_location()[0])
 
-    resolution = box_roi_pool.output_size[0]  # 7
-    representation_size = 1024
+    resolution = box_roi_pool.output_size[0]
+    representation_size = 128
     box_head = TwoMLPHead(backbone.out_channels * resolution ** 2, representation_size)  # (64*7^2, 1024)
-    # box_predictor = FastRCNNPredictor(representation_size, num_classes=None)
+    box_predictor = FastRCNNPredictor(representation_size, 2)
 
     # load an instance segmentation model pre-trained on COCO
     model = FasterRCNN(backbone=backboneFPN, num_classes=num_classes,
                        rpn_anchor_generator=anchor_generator, rpn_head=rpn_head,
-                       box_head=box_head, box_roi_pool=box_roi_pool,
+                       box_head=box_head, box_roi_pool=box_roi_pool, box_predictor=box_predictor,
                        **setting_dict)
 
     return model

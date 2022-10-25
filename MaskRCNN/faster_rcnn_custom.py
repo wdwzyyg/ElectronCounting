@@ -14,7 +14,7 @@ from MaskRCNN.rpn_custom import RPNHead, RegionProposalNetwork
 from MaskRCNN.transform_custom import GeneralizedRCNNTransform
 
 __all__ = [
-    "FasterRCNN", "TwoMLPHead",
+    "FasterRCNN", "TwoMLPHead", "FastRCNNPredictor",
 ]
 
 
