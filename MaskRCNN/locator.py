@@ -69,7 +69,7 @@ class Locator:
 
                 del image_cell, increment, output
 
-            boxes_list.append(torch.stack(boxes, dim=0))
+            boxes_list.append(torch.cat(boxes, dim=0))
 
             del divisible_img
 
