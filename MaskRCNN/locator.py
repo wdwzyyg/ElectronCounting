@@ -55,7 +55,8 @@ class Locator:
             divisible_img = whole_img.new_full(max_size, 0)
             divisible_img[: whole_img.shape[0], : whole_img.shape[1], : whole_img.shape[2]].copy_(whole_img)
             boxes = []
-            for i, j in list(itertools.product(range(max_size[1]/self.process_stride), range(max_size[2]/self.process_stride) )):
+            for i, j in list(itertools.product(range(int(max_size[1]/self.process_stride)),
+                                               range(int(max_size[2]/self.process_stride)))):
                 image_cell = divisible_img[:, i*self.process_stride:(i+1)*self.process_stride,
                              j*self.process_stride:(j+1)*self.process_stride]
                 output = self.fastrcnn_model([image_cell])[0]['boxes']
