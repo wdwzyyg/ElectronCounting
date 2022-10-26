@@ -30,7 +30,7 @@ class Locator:
         >>>from  MaskRCNN.locator import Locator
         >>>counting = Locator(model_object, device, process_stride, method, locating_model)
         >>>boxes_list = counting.predict(x) # x as the image array in shape [1,h,w]
-        >>>filtered, coords, eventsize = counting.locate(x, boxes_list[0])
+        >>>filtered, coords, eventsize = counting.locate(x[0], boxes_list[0])
 
     """
 
@@ -94,6 +94,9 @@ class Locator:
         coor = []
         eventsize = []
 
+        if torch.cuda.is_available() and self.device == torch.device('cuda'):
+            boxes = boxes.cpu()
+
         for box in boxes:
             xarea = image_array[box[1]:(box[3] + 1), box[0]:(box[2] + 1)]
             # one more row and column added at four edges.
@@ -121,6 +124,7 @@ class Locator:
                 (model_x, model_y) = np.unravel_index(np.argmax(prob), shape=(width, width))
 
             elif self.method == 'max':
+
                 (model_x, model_y) = np.unravel_index(np.argmax(patch), shape=(width, width))
 
             else:
