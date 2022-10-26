@@ -100,7 +100,11 @@ class Locator:
         for box in boxes:
             xarea = image_array[box[1]:(box[3] + 1), box[0]:(box[2] + 1)]
             # one more row and column added at four edges.
-            patch = np.pad(xarea, ((1, width - xarea.shape[0] + 1), (1, width - xarea.shape[1] + 1)))
+            if xarea.shape[0] > 11:
+                patch = np.pad(xarea, ((1, 0), (1, 0)))
+                patch = patch[:12, :12]
+            else:
+                patch = np.pad(xarea, ((1, width - xarea.shape[0] + 1), (1, width - xarea.shape[1] + 1)))
 
             if self.method == 'fcn':
                 if torch.cuda.is_available() and self.device == torch.device('cuda'):
