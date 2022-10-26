@@ -15,7 +15,7 @@ class Locator:
     Implements Faster R-CNN on a single image (1 px events excluded)
     and followed with a FCN trained on Faster R-CNN predicted boxes
     to assign the entry positions
-
+    Returns boxes as xmin, ymin, xmax,  ymax, x means horizontal and y means vertical.
 
     Args:
         Inputs image patches with fixed width. e.g.12
@@ -61,10 +61,10 @@ class Locator:
                              j*self.process_stride:(j+1)*self.process_stride]
                 output = self.fastrcnn_model([image_cell])[0]['boxes']
                 increment = torch.zeros_like(output)
-                increment[:, 0] = i * self.process_stride
-                increment[:, 2] = i * self.process_stride
-                increment[:, 1] = j * self.process_stride
-                increment[:, 3] = j * self.process_stride
+                increment[:, 0] = j * self.process_stride
+                increment[:, 2] = j * self.process_stride
+                increment[:, 1] = i * self.process_stride
+                increment[:, 3] = i * self.process_stride
                 boxes.append(output + increment)
 
                 del image_cell, increment, output
