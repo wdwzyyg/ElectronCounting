@@ -125,11 +125,11 @@ class Locator:
                 prob = prob.permute(0, 2, 3, 1)  # reshape with channel=last as in tf/keras
                 prob = prob.numpy()[0, :, :, 0]
 
-                (model_x, model_y) = np.unravel_index(np.argmax(prob), shape=(width, width))
+                (model_x, model_y) = np.unravel_index(np.argmax(prob), shape=(width+2, width+2))
 
             elif self.method == 'max':
 
-                (model_x, model_y) = np.unravel_index(np.argmax(patch), shape=(width, width))
+                (model_x, model_y) = np.unravel_index(np.argmax(patch), shape=(width+2, width+2))
 
             else:
                 raise ValueError("Use 'fcn' or 'max' to locate the entry position. ")
