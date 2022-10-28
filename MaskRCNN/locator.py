@@ -50,6 +50,8 @@ class Locator:
         meanADU = 225.0
         offset = -105  # fit from 200kV Validation data.
         limit = int(arr.sum() / meanADU + offset)
+        if limit < 2: # make the minimum limit as 2.
+            limit = 2
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit*4, 'testing': limit*4}
         self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit*3, 'testing': limit*3}
         self.fastrcnn_model.roi_heads.detections_per_img = int(limit * 1.2)
