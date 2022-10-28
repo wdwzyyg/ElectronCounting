@@ -45,11 +45,16 @@ class Locator:
 
     def model_tune(self, arr):
         """
-        Change the detection limits of Fast R-CNN model by estimating the image sparsity
-        ? Best image sparsity estimation function?
-        :param arr:
-        :return:
+        Change the detection limits and thresholds of Fast R-CNN model by estimating the image sparsity
         """
+        meanADU = 225.0
+        offset = -105  # fit from 200kV Validation data.
+        limit = int(arr.sum() / meanADU + offset)
+        self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit*4, 'testing': limit*4}
+        self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit*3, 'testing': limit*3}
+        self.fastrcnn_model.roi_heads.detections_per_img = int(limit * 1.2)
+        self.fastrcnn_model.roi_heads.score_thresh = 2 / limit if limit < 120 else 0
+        self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
     @torch.no_grad()
     def grid_predict(self, inputs: List[torch.tensor]):
@@ -70,6 +75,11 @@ class Locator:
                                                range(int(max_size[2] / self.process_stride)))):
                 image_cell = divisible_img[:, i * self.process_stride:(i + 1) * self.process_stride,
                              j * self.process_stride:(j + 1) * self.process_stride]
+
+                if self.prelimit:
+                    self.model_tune(image_cell)
+
+                image_cell = map01(image_cell)
                 output = self.fastrcnn_model([image_cell])[0]['boxes']
                 increment = torch.zeros_like(output)
                 increment[:, 0] = j * self.process_stride
@@ -159,7 +169,7 @@ class Locator:
         images = []
         out_list = []
         for i, im in enumerate(x):
-            image = map01(im)
+            # image = map01(im)
             image = torch.tensor(image, dtype=torch.float32)
             image = image[None, None, ...]
             image = torch.nn.Upsample(scale_factor=2, mode='bilinear')(image)
