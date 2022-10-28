@@ -100,9 +100,9 @@ class Locator:
         for box in boxes:
             xarea = image_array[box[1]:(box[3] + 1), box[0]:(box[2] + 1)]
             # one more row and column added at four edges.
-            if xarea.shape[0] > 11 or xarea.shape[1] > 11:
-                patch = np.pad(xarea, ((1, 0), (1, 0)))
-                patch = patch[:12, :12]
+            if xarea.shape[0] > (width + 1) or xarea.shape[1] > (width + 1):
+                patch = np.pad(xarea, ((1, width), (1, width)))
+                patch = patch[:(width + 2), :(width + 2)]
             else:
                 patch = np.pad(xarea, ((1, width - xarea.shape[0] + 1), (1, width - xarea.shape[1] + 1)))
 
