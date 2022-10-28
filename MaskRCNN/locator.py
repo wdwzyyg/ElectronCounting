@@ -34,11 +34,11 @@ class Locator:
 
     """
 
-    def __init__(self, fastrcnn_model, device, process_stride=64, method='max', locating_model=None, **kwargs):
+    def __init__(self, fastrcnn_model, device, process_stride=64, method='max', locating_model=None, dynamic_param=False, **kwargs):
         super().__init__()
         self.fastrcnn_model = fastrcnn_model
         self.device = device
-        self.prelimit = False
+        self.dynamic_param = dynamic_param
         self.process_stride = process_stride
         self.method = method
         self.locating_model = locating_model
@@ -76,7 +76,7 @@ class Locator:
                 image_cell = divisible_img[:, i * self.process_stride:(i + 1) * self.process_stride,
                              j * self.process_stride:(j + 1) * self.process_stride]
 
-                if self.prelimit:
+                if self.dynamic_param:
                     self.model_tune(image_cell)
 
                 image_cell = map01(image_cell)
