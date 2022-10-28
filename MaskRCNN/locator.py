@@ -34,7 +34,8 @@ class Locator:
 
     """
 
-    def __init__(self, fastrcnn_model, device, process_stride=64, method='max', locating_model=None, dynamic_param=False, **kwargs):
+    def __init__(self, fastrcnn_model, device, process_stride=64, method='max', locating_model=None,
+                 dynamic_param=False, **kwargs):
         super().__init__()
         self.fastrcnn_model = fastrcnn_model
         self.device = device
@@ -47,13 +48,15 @@ class Locator:
         """
         Change the detection limits and thresholds of Fast R-CNN model by estimating the image sparsity
         """
-        meanADU = 225.0
-        offset = -105  # fit from 200kV Validation data.
+        meanADU = 241.0 * 4  # mean ADU * upsample_factor^2
+        offset = 0
+        # fit from 200kV Validation data, between a 64x64
+        # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
-        if limit < 2: # make the minimum limit as 2.
+        if limit < 2:  # make the minimum limit as 2.
             limit = 2
-        self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit*4, 'testing': limit*4}
-        self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit*3, 'testing': limit*3}
+        self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * 4, 'testing': limit * 4}
+        self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * 3, 'testing': limit * 3}
         self.fastrcnn_model.roi_heads.detections_per_img = int(limit * 1.2)
         self.fastrcnn_model.roi_heads.score_thresh = 2 / limit if limit < 120 else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
@@ -137,11 +140,11 @@ class Locator:
                 prob = prob.permute(0, 2, 3, 1)  # reshape with channel=last as in tf/keras
                 prob = prob.numpy()[0, :, :, 0]
 
-                (model_x, model_y) = np.unravel_index(np.argmax(prob), shape=(width+2, width+2))
+                (model_x, model_y) = np.unravel_index(np.argmax(prob), shape=(width + 2, width + 2))
 
             elif self.method == 'max':
 
-                (model_x, model_y) = np.unravel_index(np.argmax(patch), shape=(width+2, width+2))
+                (model_x, model_y) = np.unravel_index(np.argmax(patch), shape=(width + 2, width + 2))
 
             else:
                 raise ValueError("Use 'fcn' or 'max' to locate the entry position. ")
@@ -155,7 +158,8 @@ class Locator:
 
         coords = np.array(coor).astype('int')
         eventsize = np.array(eventsize).astype('int')
-        filtered[(coords[:, 0], coords[:, 1])] = 1
+        if len(coords):
+            filtered[(coords[:, 0], coords[:, 1])] = 1
 
         return filtered, coords, eventsize
 
