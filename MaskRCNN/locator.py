@@ -170,7 +170,7 @@ class Locator:
         out_list = []
         for i, im in enumerate(x):
             # image = map01(im)
-            image = torch.tensor(image, dtype=torch.float32)
+            image = torch.tensor(im, dtype=torch.float32)
             image = image[None, None, ...]
             image = torch.nn.Upsample(scale_factor=2, mode='bilinear')(image)
             images.append(image[0])  # return dimension [C, H, W]
