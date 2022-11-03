@@ -34,8 +34,8 @@ class Locator:
 
     """
 
-    def __init__(self, fastrcnn_model, device, process_stride=64, method='max', locating_model=None,
-                 dynamic_param=False, **kwargs):
+    def __init__(self, fastrcnn_model, device, process_stride=64, method='max', dark_threshold=20, locating_model=None,
+                 dynamic_param=False, ext_small = False, **kwargs):
         super().__init__()
         self.fastrcnn_model = fastrcnn_model
         self.device = device
@@ -43,6 +43,8 @@ class Locator:
         self.process_stride = process_stride
         self.method = method
         self.locating_model = locating_model
+        self.ext_small = ext_small
+        self.dark_threshold = dark_threshold
 
     def model_tune(self, arr):
         """
@@ -53,12 +55,12 @@ class Locator:
         # fit from 200kV Validation data, between a 64x64
         # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
-        if limit < 2:  # make the minimum limit as 2.
-            limit = 2
+        if limit < 3:  # make the minimum limit as 3.
+            limit = 3
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * 4, 'testing': limit * 4}
         self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * 3, 'testing': limit * 3}
         self.fastrcnn_model.roi_heads.detections_per_img = int(limit * 1.2)
-        self.fastrcnn_model.roi_heads.score_thresh = 2 / limit if limit < 120 else 0
+        self.fastrcnn_model.roi_heads.score_thresh = 2 / limit if limit < 12 else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
     @torch.no_grad()
@@ -83,6 +85,9 @@ class Locator:
 
                 if self.dynamic_param:
                     self.model_tune(image_cell)
+
+                # thresholding to remove dark noise before applying the model
+                image_cell[image_cell < self.dark_threshold] = 0
 
                 image_cell = map01(image_cell)
                 output = self.fastrcnn_model([image_cell])[0]['boxes']
@@ -114,8 +119,15 @@ class Locator:
 
         for box in boxes:
             xarea = image_array[box[1]:(box[3] + 1), box[0]:(box[2] + 1)]
+
+            # if the box is just 1~2 pxs, take the intensity value at four line edge instead of padding zero
+            if (xarea.shape[0]+xarea.shape[1]) <= 3:
+                if self.ext_small:
+                    xarea_ext = image_array[box[1]-1:(box[3] + 2), box[0]-1:(box[2] + 2)]
+                    patch = np.pad(xarea_ext, ((0, width - xarea_ext.shape[0] + 2), (0, width - xarea_ext.shape[1] + 2)))
+
             # one more row and column added at four edges.
-            if xarea.shape[0] > (width + 1) or xarea.shape[1] > (width + 1):
+            elif xarea.shape[0] > (width + 1) or xarea.shape[1] > (width + 1):
                 patch = np.pad(xarea, ((1, width), (1, width)))
                 patch = patch[:(width + 2), :(width + 2)]
             else:
