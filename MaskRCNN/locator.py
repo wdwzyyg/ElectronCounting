@@ -121,10 +121,9 @@ class Locator:
             xarea = image_array[box[1]:(box[3] + 1), box[0]:(box[2] + 1)]
 
             # if the box is just 1~2 pxs, take the intensity value at four line edge instead of padding zero
-            if (xarea.shape[0]+xarea.shape[1]) <= 3:
-                if self.ext_small:
-                    xarea_ext = image_array[box[1]-1:(box[3] + 2), box[0]-1:(box[2] + 2)]
-                    patch = np.pad(xarea_ext, ((0, width - xarea_ext.shape[0] + 2), (0, width - xarea_ext.shape[1] + 2)))
+            if (xarea.shape[0]+xarea.shape[1]) <= 3 and self.ext_small:
+                xarea_ext = image_array[box[1]-1:(box[3] + 2), box[0]-1:(box[2] + 2)]
+                patch = np.pad(xarea_ext, ((0, width - xarea_ext.shape[0] + 2), (0, width - xarea_ext.shape[1] + 2)))
 
             # one more row and column added at four edges.
             elif xarea.shape[0] > (width + 1) or xarea.shape[1] > (width + 1):
