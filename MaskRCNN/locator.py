@@ -20,22 +20,25 @@ class Locator:
     Args:
         fastrcnn_model: the loaded fast rcnn model
         device: torch.device('cpu') or torch.device('cuda')
-        prelimit: if tune the detection limits for the fast rcnn model
         process_stride: divide the image into pieces when applying the fast rcnn, default 64.
         method: 'max' or 'fcn'
+        dark_threshold: the intensity threshold for remove dark noise
         locating_model: the loaded fcn model for assigning entry position
-
+        dynamic_param: bool, whether apply model tune for images with different electron density
+        p_list: optional list of five multiplier for model tune, if none, will use default numbers: [6, 6, 1.3, 1.5, 23]
+        meanADU: optional float for mean intensity per electron (ADU), if none, will use default 241 for 200kV.
     Example::
 
         >>>from  MaskRCNN.locator import Locator
-        >>>counting = Locator(model_object, device, process_stride, method, locating_model)
+        >>>counting = Locator(model_object, device, process_stride, method,
+        >>>dark_threshold, locating_model, dynamic_param, p_list = p_list, meanADU=meanADU)
         >>>boxes_list = counting.predict(x) # x as the image array in shape [1,h,w]
         >>>filtered, coords, eventsize = counting.locate(x[0], boxes_list[0])
 
     """
 
     def __init__(self, fastrcnn_model, device, process_stride=64, method='max', dark_threshold=20, locating_model=None,
-                 dynamic_param=False, ext_small = False, **kwargs):
+                 dynamic_param=False, **kwargs):
         super().__init__()
         self.fastrcnn_model = fastrcnn_model
         self.device = device
@@ -43,24 +46,29 @@ class Locator:
         self.process_stride = process_stride
         self.method = method
         self.locating_model = locating_model
-        self.ext_small = ext_small
         self.dark_threshold = dark_threshold
+        self.p_list = kwargs.get('p_list')
+        if self.p_list is None:
+            self.p_list = [6, 6, 1.3, 1.5, 23]
+        self.meanADU = kwargs.get('meanADU')
+        if self.meanADU is None:
+            self.meanADU = 241.0
 
     def model_tune(self, arr):
         """
         Change the detection limits and thresholds of Fast R-CNN model by estimating the image sparsity
         """
-        meanADU = 241.0 * 4  # mean ADU * upsample_factor^2
+        meanADU = self.meanADU * 4  # mean ADU * upsample_factor^2
         offset = 0
         # fit from 200kV Validation data, between a 64x64
         # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
-        if limit < 3:  # make the minimum limit as 3.
+        if limit < 3:  # make the minimum limit as 2.
             limit = 3
-        self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * 4, 'testing': limit * 4}
-        self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * 3, 'testing': limit * 3}
-        self.fastrcnn_model.roi_heads.detections_per_img = int(limit * 1.2)
-        self.fastrcnn_model.roi_heads.score_thresh = 2 / limit if limit < 12 else 0
+        self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * self.p_list[0], 'testing': limit * self.p_list[0]}
+        self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * self.p_list[1], 'testing': limit * self.p_list[1]}
+        self.fastrcnn_model.roi_heads.detections_per_img = int(limit * self.p_list[2])
+        self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
     @torch.no_grad()
@@ -120,13 +128,13 @@ class Locator:
         for box in boxes:
             xarea = image_array[box[1]:(box[3] + 1), box[0]:(box[2] + 1)]
 
-            # if the box is just 1~2 pxs, take the intensity value at four line edge instead of padding zero
-            if (xarea.shape[0]+xarea.shape[1]) <= 3 and self.ext_small:
-                xarea_ext = image_array[box[1]-1:(box[3] + 2), box[0]-1:(box[2] + 2)]
-                patch = np.pad(xarea_ext, ((0, width - xarea_ext.shape[0] + 2), (0, width - xarea_ext.shape[1] + 2)))
+            # # if the box is just 1~2 pxs, take the intensity value at four line edge instead of padding zero
+            # if (xarea.shape[0]+xarea.shape[1]) <= 3 and self.ext_small:
+            #     xarea_ext = image_array[box[1]-1:(box[3] + 2), box[0]-1:(box[2] + 2)]
+            #     patch = np.pad(xarea_ext, ((0, width - xarea_ext.shape[0] + 2), (0, width - xarea_ext.shape[1] + 2)))
 
             # one more row and column added at four edges.
-            elif xarea.shape[0] > (width + 1) or xarea.shape[1] > (width + 1):
+            if xarea.shape[0] > (width + 1) or xarea.shape[1] > (width + 1):
                 patch = np.pad(xarea, ((1, width), (1, width)))
                 patch = patch[:(width + 2), :(width + 2)]
             else:
