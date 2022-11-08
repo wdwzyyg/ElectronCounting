@@ -49,7 +49,8 @@ class Locator:
         self.dark_threshold = dark_threshold
         self.p_list = kwargs.get('p_list')
         if self.p_list is None:
-            self.p_list = [6, 6, 1.3, 1.5, 23]
+            # self.p_list = [6, 6, 1.3, 1.5, 23]
+            self.p_list = [8, 6, 1.3, 2, 50]
         self.meanADU = kwargs.get('meanADU')
         if self.meanADU is None:
             self.meanADU = 241.0
