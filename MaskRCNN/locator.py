@@ -22,7 +22,7 @@ class Locator:
         device: torch.device('cpu') or torch.device('cuda')
         process_stride: divide the image into pieces when applying the fast rcnn, default 64.
         method: 'max' or 'fcn'
-        dark_threshold: the intensity threshold for remove dark noise
+        dark_threshold: the intensity threshold for remove dark noise for image patches with density < 0.01.
         locating_model: the loaded fcn model for assigning entry position
         dynamic_param: bool, whether apply model tune for images with different electron density
         p_list: optional list of five multiplier for model tune, if none, will use default numbers: [6, 6, 1.3, 1.5, 23]
@@ -49,8 +49,7 @@ class Locator:
         self.dark_threshold = dark_threshold
         self.p_list = kwargs.get('p_list')
         if self.p_list is None:
-            # self.p_list = [6, 6, 1.3, 1.5, 23]
-            self.p_list = [8, 6, 1.3, 2, 50]
+            self.p_list = [8, 6, 1.5, 1, 50]
         self.meanADU = kwargs.get('meanADU')
         if self.meanADU is None:
             self.meanADU = 241.0
@@ -71,6 +70,9 @@ class Locator:
         self.fastrcnn_model.roi_heads.detections_per_img = int(limit * self.p_list[2])
         self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
+
+        if limit > 10:
+            self.dark_threshold = 0  # for image that not quite sparse, lift the pre-thresholding.
 
     @torch.no_grad()
     def grid_predict(self, inputs: List[torch.tensor]):
