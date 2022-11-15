@@ -14,9 +14,10 @@ class GeneralizedDataset:
     target: dict(image_id(str), boxes(tensor int16), masks(tensor uint8))
     """
 
-    def __init__(self, data_dir, train=False, filestart=0, filenum=25, upsample=1, getmask= False, expandmask=False, imagesize=256):
+    def __init__(self, data_dir, train=False, threshold=0, filestart=0, filenum=25, upsample=1, getmask= False, expandmask=False, imagesize=256):
         self.data_dir = data_dir
         self.train = train
+        self.threshold = threshold
         self.expandmask = expandmask
         self.getmask = getmask
         self.imagesize = imagesize
@@ -35,6 +36,7 @@ class GeneralizedDataset:
     def get_image(self, img_id):
         path = self.data_dir + img_id[:3] + '_img.npz'
         image = np.load(path)['arr_' + str(int(img_id[3:]))]
+        image[image < self.threshold] = 0
         image = map01(image)
         image = torch.tensor(image, dtype=torch.float32)
         image = image[None, None, ...]
