@@ -106,10 +106,10 @@ class Locator:
         maxs= []
         mins = []
         for image in inputs:
-            pad = [torch.floor(image.shape[0] / (self.process_stride - 6)) * (
+            pad = [int(image.shape[0] / (self.process_stride - 6)) * (
                         self.process_stride - 6) + self.process_stride,
-                   torch.floor(image.shape[1] / (self.process_stride - 6)) * (
-                               self.process_stride - 6) + self.process_stride]
+                   int(image.shape[1] / (self.process_stride - 6)) * (
+                               self.process_stride - 6) + self.process_stride]  # int works as floor for positive number
             image = F.pad(image, (0, pad[0], 0, pad[0]))
             windows = image.unfold(0, self.process_stride, self.process_stride - 6)
             windows = windows.unfold(1, self.process_stride, self.process_stride - 6)
@@ -133,7 +133,7 @@ class Locator:
         self.fastrcnn_model.eval()
 
         counted_list = []
-        inputs = torch.tensor(inputs, dtype=torch.float32)
+        inputs = torch.as_tensor(inputs, dtype=torch.float32)
         counted_images = torch.zeros_like(inputs)
 
         image_cell_list, windowshape, maxs, mins = self.images_to_window_lists(inputs)
