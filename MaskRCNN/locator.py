@@ -1,12 +1,19 @@
 from typing import List
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 
 
 def map01(mat):
     return (mat - mat.min()) / (mat.max() - mat.min())
+
+
+def unravel_index(index, shape):
+    out = []
+    for dim in reversed(shape):
+        out.append(index % dim)
+        index = index // dim
+    return tuple(reversed(out))
 
 
 def stich_windows(windows, k, cropx, cropy):
@@ -76,6 +83,8 @@ class Locator:
         if self.meanADU is None:
             self.meanADU = 241.0
 
+        self.fastrcnn_model = self.fastrcnn_model.to(self.device)
+
     def model_tune(self, arr):
         """
         Change the detection limits and thresholds of Fast R-CNN model by estimating the image sparsity
@@ -103,22 +112,21 @@ class Locator:
         """
         inputs = inputs.to(self.device)
         outputs = []
-        maxs= []
+        maxs = []
         mins = []
         for image in inputs:
             pad = [int(image.shape[0] / (self.process_stride - 6)) * (
-                        self.process_stride - 6) + self.process_stride,
+                    self.process_stride - 6) + self.process_stride,
                    int(image.shape[1] / (self.process_stride - 6)) * (
-                               self.process_stride - 6) + self.process_stride]  # int works as floor for positive number
-            image = F.pad(image, (0, pad[0], 0, pad[0]))
+                           self.process_stride - 6) + self.process_stride]  # int works as floor for positive number
+            image = F.pad(image, (0, pad[0] - image.shape[0], 0, pad[1] - image.shape[1]))
             windows = image.unfold(0, self.process_stride, self.process_stride - 6)
             windows = windows.unfold(1, self.process_stride, self.process_stride - 6)
             # up-sampling the windows
             windows = torch.nn.Upsample(scale_factor=2, mode='nearest')(windows)
-            outputs.append(list(torch.flatten(windows, start_dim=0, end_dim=1)))
-            maxs.append([image.max()]*(windows.shape[0]*windows.shape[1]))
-            mins.append([image.min()]*(windows.shape[0]*windows.shape[1]))
-
+            outputs = outputs + list(torch.flatten(windows, start_dim=0, end_dim=1))
+            maxs = maxs + [image.max()] * (windows.shape[0] * windows.shape[1])
+            mins = mins + [image.min()] * (windows.shape[0] * windows.shape[1])
         return outputs, windows.shape, maxs, mins
 
     @torch.no_grad()
@@ -129,7 +137,7 @@ class Locator:
         """
         self.fastrcnn_model.transform.crop_max = max(inputs.shape[1], inputs.shape[2])
         # make size_divisible equals process_stride here to avoid inconsistent padding issue.
-        self.fastrcnn_model.transform.size_divisible = self.process_stride
+        self.fastrcnn_model.transform.size_divisible = self.process_stride * 2
         self.fastrcnn_model.eval()
 
         counted_list = []
@@ -145,7 +153,7 @@ class Locator:
             image_cell[image_cell < self.dark_threshold] = 0
 
             image_cell = (image_cell - mins[i]) / (maxs[i] - mins[i])  # norm the image cells equally
-            boxes = self.fastrcnn_model([image_cell])[0]['boxes']
+            boxes = self.fastrcnn_model([image_cell[None, ...]])[0]['boxes']
 
             select = []
             for row, value in enumerate(boxes):
@@ -154,14 +162,17 @@ class Locator:
             select = torch.as_tensor(select, dtype=torch.int, device=self.device)
             filtered_boxes = torch.index_select(boxes, 0, select)
             filtered_boxes = filtered_boxes / 2.0
-
-            filtered, _, _ = self.locate(F.interpolate(image_cell, scale_factor=0.5, mode='nearest'), filtered_boxes)
+            image_cell_ori = F.interpolate(image_cell[None, None, ...], scale_factor=0.5, mode='nearest')[0, 0]
+            filtered, _, = self.locate(image_cell_ori, filtered_boxes)
             counted_list.append(filtered)
 
-        for index in range(len(counted_list)/windowshape[0]/windowshape[1]):
-            counted_cells = counted_list[i*windowshape[0]*windowshape[1]:(i+1)*windowshape[0]*windowshape[1]]
-            counted_cells = torch.as_tensor(counted_cells).reshape((windowshape[0], windowshape[1],
-                                                                    windowshape[2]/2, windowshape[3]/2))
+        image_num = int(len(counted_list) / windowshape[0] / windowshape[1])
+        for index in range(image_num):
+            counted_cells = counted_list[
+                            index * windowshape[0] * windowshape[1]:(index + 1) * windowshape[0] * windowshape[1]]
+            counted_cells = torch.cat(counted_cells)
+            counted_cells = counted_cells.reshape(windowshape[0], windowshape[1], int(windowshape[2] / 2),
+                                                  int(windowshape[3] / 2))
             counted_images[index] = stich_windows(counted_cells, k=3, cropx=inputs.shape[1], cropy=inputs.shape[2])
 
         return counted_images
@@ -169,13 +180,12 @@ class Locator:
     def locate(self, image_array, boxes):
 
         width = 10
-        filtered = np.zeros_like(image_array)
+        filtered = torch.zeros_like(image_array)
         boxes = boxes.round().int()
         coor = []
-        eventsize = []
 
-        if torch.cuda.is_available() and self.device == torch.device('cuda'):
-            boxes = boxes.cpu()
+        # if torch.cuda.is_available() and self.device == torch.device('cuda'):
+        #     boxes = boxes.cpu()
 
         for box in boxes:
             xarea = image_array[box[1]:(box[3] + 1), box[0]:(box[2] + 1)]
@@ -187,49 +197,26 @@ class Locator:
 
             # one more row and column added at four edges.
             if xarea.shape[0] > (width + 1) or xarea.shape[1] > (width + 1):
-                patch = np.pad(xarea, ((1, width), (1, width)))
+                patch = F.pad(xarea, (1, width, 1, width))
                 patch = patch[:(width + 2), :(width + 2)]
             else:
-                patch = np.pad(xarea, ((1, width - xarea.shape[0] + 1), (1, width - xarea.shape[1] + 1)))
+                patch = F.pad(xarea, (1, (width - xarea.shape[1] + 1), 1, (width - xarea.shape[0] + 1)))
 
-            if self.method == 'fcn':
-                if torch.cuda.is_available() and self.device == torch.device('cuda'):
-                    self.locating_model.cuda()
-                    image = torch.tensor(np.expand_dims(patch, axis=(0, 1)), dtype=torch.float32).cuda()
-                    image = image.cuda()
-                    self.locating_model.eval()
-                    with torch.no_grad():
-                        res = self.locating_model.forward(image)
-                    res = res.cpu()
-                else:
-                    image = torch.tensor(np.expand_dims(patch, axis=(0, 1)), dtype=torch.float32)
-                    self.locating_model.eval()
-                    with torch.no_grad():
-                        res = self.locating_model.forward(image)
+            if self.method == 'max':
 
-                prob = torch.sigmoid(res)
-                prob = prob.permute(0, 2, 3, 1)  # reshape with channel=last as in tf/keras
-                prob = prob.numpy()[0, :, :, 0]
-
-                (model_x, model_y) = np.unravel_index(np.argmax(prob), shape=(width + 2, width + 2))
-
-            elif self.method == 'max':
-
-                (model_x, model_y) = np.unravel_index(np.argmax(patch), shape=(width + 2, width + 2))
+                (model_x, model_y) = unravel_index(torch.argmax(patch), shape=(width + 2, width + 2))
 
             else:
-                raise ValueError("Use 'fcn' or 'max' to locate the entry position. ")
+                raise ValueError("Use 'max' to locate the entry position. ")
 
             cx = model_x + box[1] - 1
             cy = model_y + box[0] - 1
             if cx > (image_array.shape[0] - 1) or cy > (image_array.shape[1] - 1) or cx < 0 or cy < 0:
                 continue
             coor.append((cx, cy))
-            eventsize.append(np.sum(patch > 20))
 
-        coords = np.array(coor).astype('int')
-        eventsize = np.array(eventsize).astype('int')
-        if len(coords):
-            filtered[(coords[:, 0], coords[:, 1])] = 1
+        coords = torch.as_tensor(coor, dtype=torch.long).to(self.device)
+        if coords.shape[0]:
+            filtered[coords[:, 0], coords[:, 1]] = 1
 
-        return filtered, coords, eventsize
+        return filtered, coords

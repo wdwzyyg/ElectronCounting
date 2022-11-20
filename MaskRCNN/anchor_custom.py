@@ -75,7 +75,9 @@ class AnchorGenerator(nn.Module):
         for it in self.cell_anchors:
             temp = torch.unique(it.to(dtype=dtype, device=device), dim=0)
             rows = torch.where((temp[:, 0] != temp[:, 2]) | (temp[:, 1] != temp[:, 3]))
-            templist.append(temp[rows])
+            # templist.append(temp[rows])
+            templist.append(temp[rows][:4])  # just keep four from the six, discard 1x3 boxes.
+
         self.cell_anchors = templist
 
     def num_anchors_per_location(self):
