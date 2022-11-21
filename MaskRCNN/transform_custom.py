@@ -28,7 +28,7 @@ class GeneralizedRCNNTransform(nn.Module):
     ) -> Tuple[ImageList, Optional[List[Dict[str, Tensor]]]]:
         if targets is not None:
             targets = [{k: v for k, v in t.items()} for t in targets]
-
+        images_out = []
         for i in range(images.shape[0]):
             image = images[i]
             target_index = targets[i] if targets is not None else None
@@ -39,11 +39,12 @@ class GeneralizedRCNNTransform(nn.Module):
                 image, target_crop = self.crop(image, target_index)
             else:
                 target_crop = None
-            images[i] = image
+            images_out = images_out + [image]
             if targets is not None and target_crop is not None:
                 targets[i] = target_crop
 
-        image_sizes = [img.shape[-2:] for img in images]
+        images_out = torch.cat(images_out)
+        image_sizes = [img.shape[-2:] for img in images_out]
         image_sizes_list: List[Tuple[int, int]] = []
         for image_size in image_sizes:
             torch._assert(
@@ -52,7 +53,7 @@ class GeneralizedRCNNTransform(nn.Module):
             )
             image_sizes_list.append((image_size[0], image_size[1]))
 
-        image_list = ImageList(images, image_sizes_list)
+        image_list = ImageList(images_out, image_sizes_list)
 
         return image_list, targets
 
