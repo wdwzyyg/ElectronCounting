@@ -39,7 +39,7 @@ class GeneralizedRCNNTransform(nn.Module):
                 image, target_crop = self.crop(image, target_index)
             else:
                 target_crop = None
-            images_out = images_out + [image]
+            images_out = images_out + [image[None, ...]]
             if targets is not None and target_crop is not None:
                 targets[i] = target_crop
 
