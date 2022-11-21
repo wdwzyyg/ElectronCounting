@@ -62,7 +62,7 @@ class Locator:
         >>>from  MaskRCNN.locator import Locator
         >>>counting = Locator(model_object, device, process_stride, method,
         >>>dark_threshold, locating_model, dynamic_param, p_list = p_list, meanADU=meanADU)
-        >>>filtered =  predict_sequence(inputs)  # inputs as the image tensor in shape [N,h,w]
+        >>>filtered = counting.predict_sequence(inputs)  # inputs as the image tensor in shape [N,h,w]
 
     """
 
@@ -153,7 +153,8 @@ class Locator:
             image_cell[image_cell < self.dark_threshold] = 0
 
             image_cell = (image_cell - mins[i]) / (maxs[i] - mins[i])  # norm the image cells equally
-            boxes = self.fastrcnn_model([image_cell[None, ...]])[0]['boxes']
+            # boxes = self.fastrcnn_model([image_cell[None, ...]])[0]['boxes']
+            boxes = self.fastrcnn_model(image_cell[None, ...])[0]['boxes']
 
             select = []
             for row, value in enumerate(boxes):
