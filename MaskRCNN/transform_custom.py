@@ -33,8 +33,8 @@ class GeneralizedRCNNTransform(nn.Module):
             image = images[i]
             target_index = targets[i] if targets is not None else None
 
-            if image.dim() != 2:
-                raise ValueError(f"images is expected to be 3d tensors of shape [C, H, W], got {images.shape}")
+            if image.dim() != 3:
+                raise ValueError(f"image is expected to be 3d tensors of shape [C, H, W], got {image.shape}")
             if self.crop_max < image.shape[-1]:
                 image, target_crop = self.crop(image, target_index)
             else:

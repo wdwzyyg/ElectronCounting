@@ -46,7 +46,7 @@ class GeneralizedRCNN(nn.Module):
         # type: (Tensor, Optional[List[Dict[str, Tensor]]]) -> Tuple[Dict[str, Tensor], List[Dict[str, Tensor]]]
         """
         Args:
-            images (Tensor): images to be processed
+            images (Tensor): images to be processed in shape [N, C, H, W]
             targets (list[Dict[str, Tensor]]): ground-truth boxes present in the image (optional)
 
         Returns:

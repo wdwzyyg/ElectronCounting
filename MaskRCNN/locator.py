@@ -154,7 +154,7 @@ class Locator:
 
             image_cell = (image_cell - mins[i]) / (maxs[i] - mins[i])  # norm the image cells equally
             # boxes = self.fastrcnn_model([image_cell[None, ...]])[0]['boxes']
-            boxes = self.fastrcnn_model(image_cell[None, ...])[0]['boxes']
+            boxes = self.fastrcnn_model(image_cell[None, None, ...])[0]['boxes']  # model direct input [N, C, H, W]
 
             select = []
             for row, value in enumerate(boxes):
