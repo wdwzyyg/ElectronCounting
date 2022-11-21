@@ -55,7 +55,7 @@ class GeneralizedDataset:
         labels = torch.ones(size=(boxes.size()[0], 1), dtype=torch.int64).flatten()  # required to be int64 and 1D
         # labels = torch.cat((torch.zeros_like(labels), labels), dim=1)  # [0,1] for each box
         # in the original dataset, for box of one pixel, xmin=xmax, ymin=ymax, so add 1 to max to redefine
-        # in order to meet requirement in generalized_rcnn.py line 95
+        # in order to meet requirement in generalized_rcnn_custom.py line 95
         boxes[:, 2] = boxes[:, 2] + 1
         boxes[:, 3] = boxes[:, 3] + 1
 
