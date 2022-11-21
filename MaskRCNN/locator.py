@@ -110,14 +110,19 @@ class Locator:
         """
         transform a batch of images(3D tensor) into windows of the images, with up-sampling by 2.
         """
+        torch._assert((torch.as_tensor(inputs.shape[1:]) < self.process_stride).any(),
+                      f"Your image dimension is {inputs.shape[1:]}, which is not larger than process stride, "
+                      f"please use process_stride={min(inputs.shape[1:])}"
+                      )
+
         inputs = inputs.to(self.device)
         outputs = []
         maxs = []
         mins = []
         for image in inputs:
-            pad = [int(image.shape[0] / (self.process_stride - 6)) * (
+            pad = [torch.div(image.shape[0], (self.process_stride - 6), rounding_mode='floor') * (
                     self.process_stride - 6) + self.process_stride,
-                   int(image.shape[1] / (self.process_stride - 6)) * (
+                   torch.div(image.shape[1], (self.process_stride - 6), rounding_mode='floor') * (
                            self.process_stride - 6) + self.process_stride]  # int works as floor for positive number
             image = F.pad(image, (0, pad[0] - image.shape[0], 0, pad[1] - image.shape[1]))
             windows = image.unfold(0, self.process_stride, self.process_stride - 6)
@@ -137,7 +142,7 @@ class Locator:
         """
         self.fastrcnn_model.transform.crop_max = max(inputs.shape[1], inputs.shape[2])
         # make size_divisible equals process_stride here to avoid inconsistent padding issue.
-        self.fastrcnn_model.transform.size_divisible = self.process_stride * 2
+        # self.fastrcnn_model.transform.size_divisible = self.process_stride * 2
         self.fastrcnn_model.eval()
 
         counted_list = []

@@ -15,7 +15,7 @@ class GeneralizedRCNNTransform(nn.Module):
 
     def __init__(
             self,
-            size_divisible: int = 32,
+            size_divisible: int = 32,  # not taking any effect
             crop_max: int = 64,
             **kwargs: Any,
     ):

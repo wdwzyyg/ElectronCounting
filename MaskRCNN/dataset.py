@@ -41,7 +41,7 @@ class GeneralizedDataset:
         image = torch.tensor(image, dtype=torch.float32)
         image = image[None, None, ...]
         if self.upsample > 1:
-            image = torch.nn.Upsample(scale_factor=self.upsample, mode='bilinear')(image)
+            image = torch.nn.Upsample(scale_factor=self.upsample, mode='nearest')(image)
         return image[0]  # return dimension [C, H, W]
 
     def get_target(self, img_id):
