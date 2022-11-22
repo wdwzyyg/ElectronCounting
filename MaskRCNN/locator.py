@@ -110,7 +110,7 @@ class Locator:
         """
         transform a batch of images(3D tensor) into windows of the images, with up-sampling by 2.
         """
-        torch._assert((torch.as_tensor(inputs.shape[1:]) < self.process_stride).any(),
+        torch._assert((torch.as_tensor(inputs.shape[1:]) > self.process_stride).all(),
                       f"Your image dimension is {inputs.shape[1:]}, which is not larger than process stride, "
                       f"please use process_stride={min(inputs.shape[1:])}"
                       )
