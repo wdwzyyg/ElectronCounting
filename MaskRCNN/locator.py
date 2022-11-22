@@ -155,7 +155,7 @@ class Locator:
         for i, image_cell in enumerate(image_cell_list):
             if self.dynamic_param:
                 self.model_tune(image_cell)
-
+            image_cell_ori = image_cell
             # thresholding to remove dark noise before applying the model
             image_cell[image_cell < self.dark_threshold] = 0
 
@@ -170,7 +170,7 @@ class Locator:
             select = torch.as_tensor(select, dtype=torch.int, device=self.device)
             filtered_boxes = torch.index_select(boxes, 0, select)
             filtered_boxes = filtered_boxes / 2.0
-            image_cell_ori = F.interpolate(image_cell[None, None, ...], scale_factor=0.5, mode='nearest')[0, 0]
+            image_cell_ori = F.interpolate(image_cell_ori[None, None, ...], scale_factor=0.5, mode='nearest')[0, 0]
             filtered, _, eventsize = self.locate(image_cell_ori, filtered_boxes)
             counted_list.append(filtered)
             eventsize_all = eventsize_all + eventsize
