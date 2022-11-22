@@ -104,7 +104,7 @@ class Locator:
         self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
-        if limit > (0.01 * arr.shape[0] * arr.shape[1]):
+        if limit > (0.004 * arr.shape[0] * arr.shape[1]):  # 0.002 is minimum for model13
             self.dark_threshold = 0  # for image that not quite sparse, lift the pre-thresholding.
 
     def images_to_window_lists(self, inputs: torch.tensor) -> List[torch.tensor]:
@@ -147,6 +147,7 @@ class Locator:
         self.fastrcnn_model.eval()
 
         counted_list = []
+        eventsize_all = []
         inputs = torch.as_tensor(inputs, dtype=torch.float32)
         counted_images = torch.zeros_like(inputs)
 
@@ -170,8 +171,9 @@ class Locator:
             filtered_boxes = torch.index_select(boxes, 0, select)
             filtered_boxes = filtered_boxes / 2.0
             image_cell_ori = F.interpolate(image_cell[None, None, ...], scale_factor=0.5, mode='nearest')[0, 0]
-            filtered, _, = self.locate(image_cell_ori, filtered_boxes)
+            filtered, _, eventsize = self.locate(image_cell_ori, filtered_boxes)
             counted_list.append(filtered)
+            eventsize_all = eventsize_all + eventsize
 
         image_num = int(len(counted_list) / windowshape[0] / windowshape[1])
         for index in range(image_num):
@@ -182,7 +184,7 @@ class Locator:
                                                   int(windowshape[3] / 2))
             counted_images[index] = stich_windows(counted_cells, k=3, cropx=inputs.shape[1], cropy=inputs.shape[2])
 
-        return counted_images
+        return counted_images, eventsize_all
 
     def locate(self, image_array, boxes):
 
@@ -190,6 +192,7 @@ class Locator:
         filtered = torch.zeros_like(image_array)
         boxes = boxes.round().int()
         coor = []
+        eventsize = []
 
         # if torch.cuda.is_available() and self.device == torch.device('cuda'):
         #     boxes = boxes.cpu()
@@ -221,9 +224,10 @@ class Locator:
             if cx > (image_array.shape[0] - 1) or cy > (image_array.shape[1] - 1) or cx < 0 or cy < 0:
                 continue
             coor.append((cx, cy))
+            eventsize.append(torch.sum(patch > 20))
 
         coords = torch.as_tensor(coor, dtype=torch.long).to(self.device)
         if coords.shape[0]:
             filtered[coords[:, 0], coords[:, 1]] = 1
 
-        return filtered, coords
+        return filtered, coords, eventsize
