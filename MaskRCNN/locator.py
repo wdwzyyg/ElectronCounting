@@ -12,7 +12,8 @@ def unravel_index(index, shape):
     out = []
     for dim in reversed(shape):
         out.append(index % dim)
-        index = index // dim
+        index = torch.div(index, dim, rounding_mode='floor')
+
     return tuple(reversed(out))
 
 
@@ -94,7 +95,7 @@ class Locator:
         # fit from 200kV Validation data, between a 64x64
         # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
-        if limit < 3:  # make the minimum limit as 2.
+        if limit < 3:  # make the minimum limit as 3.
             limit = 3
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * self.p_list[0], 'testing': limit * self.p_list[0]}
         self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * self.p_list[1],
@@ -103,7 +104,7 @@ class Locator:
         self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
-        if limit > 10:
+        if limit > (0.01 * arr.shape[0] * arr.shape[1]):
             self.dark_threshold = 0  # for image that not quite sparse, lift the pre-thresholding.
 
     def images_to_window_lists(self, inputs: torch.tensor) -> List[torch.tensor]:
