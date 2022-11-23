@@ -103,7 +103,7 @@ class Locator:
 
                 # image_cell = map01(image_cell)
                 image_cell = (image_cell - whole_img.min()) / (whole_img.max() - whole_img.min())  # norm the image cells equally
-                output = self.fastrcnn_model([image_cell])[0]['boxes']
+                output = self.fastrcnn_model(image_cell[None, ...])[0]['boxes']
                 increment = torch.zeros_like(output)
                 increment[:, 0] = j * self.process_stride
                 increment[:, 2] = j * self.process_stride
