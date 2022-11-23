@@ -224,11 +224,10 @@ class Locator:
             if cx > (image_array.shape[0] - 1) or cy > (image_array.shape[1] - 1) or cx < 0 or cy < 0:
                 continue
             coor.append((cx, cy))
-            eventsize.append(torch.sum(patch > 20))
+            eventsize.append((torch.sum(patch > 20)).item())
 
         coords = torch.as_tensor(coor, dtype=torch.long).to(self.device)
-        eventsize = torch.as_tensor(eventsize, dtype=torch.long).to(self.device)
+        # eventsize = torch.as_tensor(eventsize, dtype=torch.long).to(self.device)
         if coords.shape[0]:
             filtered[coords[:, 0], coords[:, 1]] = 1
-
         return filtered, coords, eventsize

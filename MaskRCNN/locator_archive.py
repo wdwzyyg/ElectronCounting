@@ -63,15 +63,16 @@ class Locator:
         # fit from 200kV Validation data, between a 64x64
         # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
-        if limit < 3:  # make the minimum limit as 2.
+        if limit < 3:  # make the minimum limit as 3.
             limit = 3
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * self.p_list[0], 'testing': limit * self.p_list[0]}
-        self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * self.p_list[1], 'testing': limit * self.p_list[1]}
+        self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * self.p_list[1],
+                                                   'testing': limit * self.p_list[1]}
         self.fastrcnn_model.roi_heads.detections_per_img = int(limit * self.p_list[2])
         self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
-        if limit > 10:
+        if limit > (0.004 * arr.shape[0] * arr.shape[1]):  # 0.002 is minimum for model13
             self.dark_threshold = 0  # for image that not quite sparse, lift the pre-thresholding.
 
     @torch.no_grad()
@@ -209,7 +210,7 @@ class Locator:
         for boxes in boxes_list:
             select = []
             for row, value in enumerate(boxes):
-                if 1 < (value[2] - value[0]) < 30 and 1 < (value[3] - value[1]) < 30:
+                if 0 < (value[2] - value[0]) < 30 and 0 < (value[3] - value[1]) < 30:
                     select.append(row)
             select = torch.as_tensor(select, dtype=torch.int, device=self.device)
             filtered_boxes = torch.index_select(boxes, 0, select)
