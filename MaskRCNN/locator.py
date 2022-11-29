@@ -113,7 +113,7 @@ class Locator:
         """
         torch._assert((torch.as_tensor(inputs.shape[1:]) > self.process_stride).all(),
                       f"Your image dimension is {inputs.shape[1:]}, which is not larger than process stride, "
-                      f"please use process_stride={min(inputs.shape[1:])}"
+                      f"please use process_stride<{min(inputs.shape[1:])}"
                       )
 
         inputs = inputs.to(self.device)
@@ -125,7 +125,7 @@ class Locator:
                     self.process_stride - 6) + self.process_stride,
                    torch.div(image.shape[1], (self.process_stride - 6), rounding_mode='floor') * (
                            self.process_stride - 6) + self.process_stride]  # int works as floor for positive number
-            image = F.pad(image, (0, pad[0] - image.shape[0], 0, pad[1] - image.shape[1]))
+            image = F.pad(image, (0, pad[1] - image.shape[1], 0, pad[0] - image.shape[0])) # left, right, top, bottom !!!
             windows = image.unfold(0, self.process_stride, self.process_stride - 6)
             windows = windows.unfold(1, self.process_stride, self.process_stride - 6)
             # up-sampling the windows
@@ -172,7 +172,7 @@ class Locator:
             filtered_boxes = filtered_boxes / 2.0
             image_cell_ori = F.interpolate(image_cell_ori[None, None, ...], scale_factor=0.5, mode='nearest')[0, 0]
             filtered, _, eventsize = self.locate(image_cell_ori, filtered_boxes)
-            counted_list.append(filtered)
+            counted_list.append(filtered[None, ...])  # [1,w,h]
             eventsize_all = eventsize_all + eventsize
 
         image_num = int(len(counted_list) / windowshape[0] / windowshape[1])
