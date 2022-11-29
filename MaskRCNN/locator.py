@@ -95,8 +95,8 @@ class Locator:
         # fit from 200kV Validation data, between a 64x64
         # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
-        if limit < 3:  # make the minimum limit as 3.
-            limit = 3
+        if limit < 1:  # make the minimum limit as 1.
+            limit = 1
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * self.p_list[0], 'testing': limit * self.p_list[0]}
         self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * self.p_list[1],
                                                    'testing': limit * self.p_list[1]}
