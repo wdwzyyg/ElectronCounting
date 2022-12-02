@@ -25,7 +25,7 @@ setup(
         "scikit-learn~=1.0.2",
         "matplotlib~=3.5.1",
         "opencv-python~=4.5.5.64",
-        "torchvision~=0.13.0+cu113"
+        "torchvision~=0.14.0"
     ],
 
 )
