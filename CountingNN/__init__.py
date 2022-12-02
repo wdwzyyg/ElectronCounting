@@ -1,5 +1,3 @@
-from CountingNN import blocks, FCN, utils
-from CountingNN.main import Trainer
+from CountingNN import model, dataset, fcn, blocks
 
-# from .__version__ import version as __version__
-__all__ = ['blocks', 'FCN', 'utils', 'Trainer']
+__all__ = ['dataset', 'model', 'fcn', 'blocks']
