@@ -19,13 +19,13 @@ setup(
         "Faster R-CNN",
     ],
     install_requires=[
-        "setuptools~=62.0.0"
-        "torch~=1.12.0"
-        "numpy~=1.22.3"
-        "scikit-learn~=1.0.2"
-        "matplotlib~=3.5.1"
-        "opencv-python~=4.5.5.64"
-        "torchvision~=0.13.0+cu113"
+        "setuptools~=62.0.0",
+        "torch~=1.12.0",
+        "numpy~=1.22.3",
+        "scikit-learn~=1.0.2",
+        "matplotlib~=3.5.1",
+        "opencv-python~=4.5.5.64",
+        "torchvision~=0.13.0+cu113",
     ],
 
 )
