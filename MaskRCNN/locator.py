@@ -120,12 +120,19 @@ class Locator:
         outputs = []
         maxs = []
         mins = []
+        h, w = inputs.shape[1:]
         for image in inputs:
             pad = [torch.div(image.shape[0], (self.process_stride - 6), rounding_mode='floor') * (
                     self.process_stride - 6) + self.process_stride,
                    torch.div(image.shape[1], (self.process_stride - 6), rounding_mode='floor') * (
                            self.process_stride - 6) + self.process_stride]  # int works as floor for positive number
             image = F.pad(image, (0, pad[1] - image.shape[1], 0, pad[0] - image.shape[0])) # left, right, top, bottom !!!
+
+            # the zero pad area make dim counting results due to dynamic modell tune, so fill with edge values
+            image[h:, :w] = image[(2*h-pad[0]):h, :w]
+            image[:h, w:] = image[:h, (2*w-pad[1]):w]
+            image[h:, w:] = image[(2*h-pad[0]):h, w:]
+
             windows = image.unfold(0, self.process_stride, self.process_stride - 6)
             windows = windows.unfold(1, self.process_stride, self.process_stride - 6)
             # up-sampling the windows
