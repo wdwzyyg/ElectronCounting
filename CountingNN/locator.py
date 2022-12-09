@@ -51,11 +51,15 @@ class Locator:
     Args:
         fastrcnn_model: the loaded fast rcnn model
         device: torch.device('cpu') or torch.device('cuda')
-        process_stride: divide the image into pieces when applying the fast rcnn, default 64.
+        process_stride: divide the image into pieces when applying the fast rcnn, default 64 for static mode.
+        None means no spliting and work on whole frames. Maximum stride 128 for mscdata gpu.
         method: 'max' or 'fcn'
         dark_threshold: the intensity threshold for remove dark noise for image patches with density < 0.01.
         locating_model: the loaded fcn model for assigning entry position
-        dynamic_param: bool, whether apply model tune for images with different electron density
+        mode: dynamic mode, whether apply model tune for images with different electron density.
+        'static': static parameters, same threshold, no model tune
+        'dynamic_window': apply model tune separately for each window
+        'dynamic_frame': apply model tune equally the whole frame based on whole frame intensity.
         p_list: optional list of five multiplier for model tune, if none, will use default numbers: [6, 6, 1.3, 1.5, 23]
         meanADU: optional float for mean intensity per electron (ADU), if none, will use default 241 for 200kV.
     Example::
@@ -68,11 +72,11 @@ class Locator:
     """
 
     def __init__(self, fastrcnn_model, device, process_stride=64, method='max', dark_threshold=20, locating_model=None,
-                 dynamic_param=False, **kwargs):
+                 mode='static', **kwargs):
         super().__init__()
         self.fastrcnn_model = fastrcnn_model
         self.device = device
-        self.dynamic_param = dynamic_param
+        self.mode = mode
         self.process_stride = process_stride
         self.method = method
         self.locating_model = locating_model
@@ -171,8 +175,16 @@ class Locator:
 
         image_cell_list, windowshape, maxs, mins = self.images_to_window_lists(inputs)
         for i, image_cell in enumerate(image_cell_list):
-            if self.dynamic_param:
+            if self.mode =='dynamic_window':
                 self.model_tune(image_cell)
+            elif self.mode =='dynamic_frame':
+                image_i = torch.div(i,  windowshape[0] * windowshape[1], rounding_mode='floor')
+                self.model_tune(inputs[image_i])
+            elif self.mode == 'static':
+                pass
+            else:
+                raise ValueError("Use mode = 'dynamic_window', dynamic_frame or 'static'. ")
+
             image_cell_ori = image_cell
             # thresholding to remove dark noise before applying the model
             image_cell[image_cell < self.dark_threshold] = 0
