@@ -110,6 +110,7 @@ class Locator:
     def images_to_window_lists(self, inputs: torch.tensor) -> List[torch.tensor]:
         """
         transform a batch of images(3D tensor) into windows of the images, with up-sampling by 2.
+        if stride = None, not spliting and return whole images.
         """
         torch._assert((torch.as_tensor(inputs.shape[1:]) > self.process_stride).all(),
                       f"Your image dimension is {inputs.shape[1:]}, which is not larger than process stride, "
@@ -121,25 +122,35 @@ class Locator:
         maxs = []
         mins = []
         h, w = inputs.shape[1:]
-        for image in inputs:
-            pad = [torch.div(image.shape[0], (self.process_stride - 6), rounding_mode='floor') * (
-                    self.process_stride - 6) + self.process_stride,
-                   torch.div(image.shape[1], (self.process_stride - 6), rounding_mode='floor') * (
-                           self.process_stride - 6) + self.process_stride]  # int works as floor for positive number
-            image = F.pad(image, (0, pad[1] - image.shape[1], 0, pad[0] - image.shape[0])) # left, right, top, bottom !!!
 
-            # the zero pad area make dim counting results due to dynamic modell tune, so fill with edge values
-            image[h:, :w] = image[(2*h-pad[0]):h, :w]
-            image[:h, w:] = image[:h, (2*w-pad[1]):w]
-            image[h:, w:] = image[(2*h-pad[0]):h, w:]
+        if self.process_stride is None:
+            for image in inputs:
+                windows = image[None, None, ...]
+                windows = torch.nn.Upsample(scale_factor=2, mode='nearest')(windows)
+                outputs = outputs + list(torch.flatten(windows, start_dim=0, end_dim=1))
+                maxs = maxs + [image.max()] * (windows.shape[0] * windows.shape[1])
+                mins = mins + [image.min()] * (windows.shape[0] * windows.shape[1])
+        else:
+            for image in inputs:
+                pad = [torch.div(image.shape[0], (self.process_stride - 6), rounding_mode='floor') * (
+                        self.process_stride - 6) + self.process_stride,
+                       torch.div(image.shape[1], (self.process_stride - 6), rounding_mode='floor') * (
+                               self.process_stride - 6) + self.process_stride]  # int works as floor for positive number
+                image = F.pad(image,
+                              (0, pad[1] - image.shape[1], 0, pad[0] - image.shape[0]))  # left, right, top, bottom !!!
 
-            windows = image.unfold(0, self.process_stride, self.process_stride - 6)
-            windows = windows.unfold(1, self.process_stride, self.process_stride - 6)
-            # up-sampling the windows
-            windows = torch.nn.Upsample(scale_factor=2, mode='nearest')(windows)
-            outputs = outputs + list(torch.flatten(windows, start_dim=0, end_dim=1))
-            maxs = maxs + [image.max()] * (windows.shape[0] * windows.shape[1])
-            mins = mins + [image.min()] * (windows.shape[0] * windows.shape[1])
+                # the zero pad area make dim counting results due to dynamic modell tune, so fill with edge values
+                image[h:, :w] = image[(2 * h - pad[0]):h, :w]
+                image[:h, w:] = image[:h, (2 * w - pad[1]):w]
+                image[h:, w:] = image[(2 * h - pad[0]):h, w:]
+
+                windows = image.unfold(0, self.process_stride, self.process_stride - 6)
+                windows = windows.unfold(1, self.process_stride, self.process_stride - 6)
+                # up-sampling the windows
+                windows = torch.nn.Upsample(scale_factor=2, mode='nearest')(windows)
+                outputs = outputs + list(torch.flatten(windows, start_dim=0, end_dim=1))
+                maxs = maxs + [image.max()] * (windows.shape[0] * windows.shape[1])
+                mins = mins + [image.min()] * (windows.shape[0] * windows.shape[1])
         return outputs, windows.shape, maxs, mins
 
     @torch.no_grad()
