@@ -163,7 +163,7 @@ class Locator:
         apply model on image one patch after another. The patches size equals the image size in training data, so that
         no need to tune the model detection limits for different limit sizes.
         """
-        self.fastrcnn_model.transform.crop_max = max(inputs.shape[1], inputs.shape[2])
+        self.fastrcnn_model.transform.crop_max = max(inputs.shape[1], inputs.shape[2])*2
         # make size_divisible equals process_stride here to avoid inconsistent padding issue.
         # self.fastrcnn_model.transform.size_divisible = self.process_stride * 2
         self.fastrcnn_model.eval()
@@ -181,6 +181,9 @@ class Locator:
                 image_i = torch.div(i,  windowshape[0] * windowshape[1], rounding_mode='floor')
                 self.model_tune(inputs[image_i])
             elif self.mode == 'static':
+                torch._assert(self.process_stride==64,
+                              f"please use process_stride=64 for static mode."
+                              )
                 pass
             else:
                 raise ValueError("Use mode = 'dynamic_window', dynamic_frame or 'static'. ")
