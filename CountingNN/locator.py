@@ -116,10 +116,6 @@ class Locator:
         transform a batch of images(3D tensor) into windows of the images, with up-sampling by 2.
         if stride = None, not spliting and return whole images.
         """
-        torch._assert((torch.as_tensor(inputs.shape[1:]) > self.process_stride).all(),
-                      f"Your image dimension is {inputs.shape[1:]}, which is not larger than process stride, "
-                      f"please use process_stride<{min(inputs.shape[1:])}"
-                      )
 
         inputs = inputs.to(self.device)
         outputs = []
@@ -135,6 +131,10 @@ class Locator:
                 maxs = maxs + [image.max()] * (windows.shape[0] * windows.shape[1])
                 mins = mins + [image.min()] * (windows.shape[0] * windows.shape[1])
         else:
+            torch._assert((torch.as_tensor(inputs.shape[1:]) > self.process_stride).all(),
+                          f"Your image dimension is {inputs.shape[1:]}, which is not larger than process stride, "
+                          f"please use process_stride<{min(inputs.shape[1:])}"
+                          )
             for image in inputs:
                 pad = [torch.div(image.shape[0], (self.process_stride - 6), rounding_mode='floor') * (
                         self.process_stride - 6) + self.process_stride,
