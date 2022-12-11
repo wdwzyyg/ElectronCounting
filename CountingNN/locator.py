@@ -108,7 +108,7 @@ class Locator:
         self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
-        if limit > (0.008 * arr.shape[0] * arr.shape[1]):  # 0.002 is minimum for model13
+        if limit > (0.005 * arr.shape[0] * arr.shape[1]):  # 0.002 is minimum for model13
             self.dark_threshold = 0  # for image that not quite sparse, lift the pre-thresholding.
 
     def images_to_window_lists(self, inputs: torch.tensor) -> List[torch.tensor]:
