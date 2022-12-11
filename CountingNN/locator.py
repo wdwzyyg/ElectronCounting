@@ -179,7 +179,7 @@ class Locator:
                 self.model_tune(image_cell)
             elif self.mode =='dynamic_frame':
                 image_i = torch.div(i,  windowshape[0] * windowshape[1], rounding_mode='floor')
-                self.model_tune(inputs[image_i])
+                self.model_tune(torch.nn.Upsample(scale_factor=2, mode='nearest')(inputs[image_i][None, None, ...]))
             elif self.mode == 'static':
                 torch._assert(self.process_stride==64,
                               f"please use process_stride=64 for static mode."
