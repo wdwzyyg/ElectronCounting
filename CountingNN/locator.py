@@ -176,8 +176,6 @@ class Locator:
         image_cell_list, windowshape, maxs, mins = self.images_to_window_lists(inputs)
         for i, image_cell in enumerate(image_cell_list):
 
-            # thresholding to remove dark noise before applying the model
-            image_cell[image_cell < self.dark_threshold] = 0
 
             if self.mode =='dynamic_window':
                 self.model_tune(image_cell)
@@ -191,7 +189,10 @@ class Locator:
                 pass
             else:
                 raise ValueError("Use mode = 'dynamic_window', dynamic_frame or 'static'. ")
-
+                
+            # thresholding to remove dark noise before applying the model
+            image_cell[image_cell < self.dark_threshold] = 0
+            
             image_cell_ori = image_cell
 
             image_cell = (image_cell - mins[i]) / (maxs[i] - mins[i])  # norm the image cells equally
