@@ -1,9 +1,8 @@
 from typing import List
 
-import numpy as np
+import kornia
 import torch
 import torch.nn.functional as F
-from scipy.ndimage import label
 
 
 def map01(mat):
@@ -101,8 +100,9 @@ class Locator:
         # fit from 200kV Validation data, between a 64x64
         # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
-        _, limit_cca = label(arr > self.dark_threshold, structure=np.ones((3, 3)))
-        limit = max(limit_cca, limit)
+        arr_t = torch.as_tensor(arr[None, None, ...] > self.dark_threshold, dtype=torch.float32)
+        limit_cca = kornia.contrib.connected_components(arr_t, num_iterations=10)
+        limit = max(limit_cca.shape[0], limit)
         if limit < 1:  # make the minimum limit as 1.
             limit = 1
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * self.p_list[0], 'testing': limit * self.p_list[0]}
