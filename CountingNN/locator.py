@@ -102,7 +102,7 @@ class Locator:
         limit = int(arr.sum() / meanADU + offset)
         arr_t = torch.as_tensor(arr[None, None, ...] > self.dark_threshold, dtype=torch.float32)
         limit_cca = kornia.contrib.connected_components(arr_t, num_iterations=10)
-        limit = max(limit_cca.shape[0], limit)
+        limit = max(torch.unique(limit_cca).shape[0], limit)
         if limit < 1:  # make the minimum limit as 1.
             limit = 1
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * self.p_list[0], 'testing': limit * self.p_list[0]}
