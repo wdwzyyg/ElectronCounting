@@ -100,7 +100,7 @@ class Locator:
         # fit from 200kV Validation data, between a 64x64
         # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
-        arr_t = torch.as_tensor(arr[None, None, ...] > self.dark_threshold, dtype=torch.float32)
+        arr_t = torch.as_tensor(arr[None, None, ...] > 30, dtype=torch.float32)
         limit_cca = kornia.contrib.connected_components(arr_t, num_iterations=10)
         limit = max(torch.unique(limit_cca).shape[0], limit)
         if limit < 1:  # make the minimum limit as 1.
