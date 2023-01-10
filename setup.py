@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ElectronCounting',
-    version='0.1.3',
+    version='0.1.4',
     packages=find_packages(),
     url='https://github.com/wdwzyyg/ElectronCounting.git',
     license='MIT',
