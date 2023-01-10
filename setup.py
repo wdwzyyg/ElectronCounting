@@ -18,8 +18,8 @@ setup(
         "Faster R-CNN",
     ],
     install_requires=[
-        "torch==1.12.0",
-        "torchvision==0.13.0",
+        # "torch==1.12.0",
+        # "torchvision==0.13.0",
         "numpy>=1.20.1",
         "scikit-learn>=1.0.2",
         "matplotlib>=3.2.2",
