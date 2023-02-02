@@ -63,6 +63,7 @@ class Locator:
         'dynamic_frame': apply model tune equally the whole frame based on whole frame intensity.
         p_list: optional list of five multiplier for model tune, if none, will use default numbers: [6, 6, 1.3, 1.5, 23]
         meanADU: optional float for mean intensity per electron (ADU), if none, will use default 241 for 200kV.
+        dynamic_thres: optional bool for wheather lift the threshold above some density within modeltune.
     Example::
 
         >>>from CountingNN.locator import Locator
@@ -88,7 +89,9 @@ class Locator:
         self.meanADU = kwargs.get('meanADU')
         if self.meanADU is None:
             self.meanADU = 241.0
-
+        self.dynamic_thres = kwargs.get('dynamic_thres')
+        if self.dynamic_thres is None:
+            self.dynamic_thres = True
         self.fastrcnn_model = self.fastrcnn_model.to(self.device)
 
     def model_tune(self, arr):
@@ -112,7 +115,7 @@ class Locator:
         self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
-        if limit > (0.005 * arr.shape[0] * arr.shape[1]):  # 0.002 is minimum for model13
+        if limit > (0.005 * arr.shape[0] * arr.shape[1]) and self.dynamic_thres:  # 0.002 is minimum for model13
             self.dark_threshold = 0  # for image that not quite sparse, lift the pre-thresholding.
 
     def images_to_window_lists(self, inputs: torch.tensor) -> List[torch.tensor]:
@@ -183,7 +186,7 @@ class Locator:
 
             if self.mode =='dynamic_window':
                 self.model_tune(image_cell)
-            elif self.mode =='dynamic_frame':
+            elif self.mode =='dynamic_frame':  # incorrect
                 image_i = torch.div(i,  windowshape[0] * windowshape[1], rounding_mode='floor')
                 self.model_tune(torch.nn.Upsample(scale_factor=2, mode='nearest')(inputs[image_i][None, None, ...]))
             elif self.mode == 'static':
@@ -255,9 +258,26 @@ class Locator:
             if self.method == 'max':
 
                 (model_x, model_y) = unravel_index(torch.argmax(patch), shape=(width + 2, width + 2))
-
+            elif self.method == 'binary_com':
+                patch[patch < 30] = 0
+                patch[patch >= 30] = 1
+                x = torch.linspace(0, patch.shape[0] - 1, patch.shape[0])
+                y = torch.linspace(0, patch.shape[1] - 1, patch.shape[1])
+                weights_x, weights_y = torch.meshgrid(x, y)
+                model_x = (patch * weights_x).sum() / patch.sum()
+                model_y = (patch * weights_y).sum() / patch.sum()
+                model_x = int(torch.round(model_x))
+                model_y = int(torch.round(model_y))
+            elif self.method == 'com':
+                x = torch.linspace(0, patch.shape[0] - 1, patch.shape[0])
+                y = torch.linspace(0, patch.shape[1] - 1, patch.shape[1])
+                weights_x, weights_y = torch.meshgrid(x, y)
+                model_x = (patch * weights_x).sum() / patch.sum()
+                model_y = (patch * weights_y).sum() / patch.sum()
+                model_x = int(torch.round(model_x))
+                model_y = int(torch.round(model_y))
             else:
-                raise ValueError("Use 'max' to locate the entry position. ")
+                raise ValueError("Use 'max','com,'binary_com' to locate the entry position. ")
 
             cx = model_x + box[1] - 1
             cy = model_y + box[0] - 1
