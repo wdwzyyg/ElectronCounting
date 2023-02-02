@@ -64,6 +64,7 @@ class Locator:
         p_list: optional list of five multiplier for model tune, if none, will use default numbers: [6, 6, 1.3, 1.5, 23]
         meanADU: optional float for mean intensity per electron (ADU), if none, will use default 241 for 200kV.
         dynamic_thres: optional bool for wheather lift the threshold above some density within modeltune.
+        pretune_thresholding: optional threshold for reset noise pixels before model tune.
     Example::
 
         >>>from CountingNN.locator import Locator
@@ -90,6 +91,7 @@ class Locator:
         if self.meanADU is None:
             self.meanADU = 241.0
         self.dynamic_thres = kwargs.get('dynamic_thres')
+        self.pretune_thresholding = kwargs.get('pretune_thresholding')
         if self.dynamic_thres is None:
             self.dynamic_thres = True
         self.fastrcnn_model = self.fastrcnn_model.to(self.device)
@@ -106,8 +108,17 @@ class Locator:
         arr_t = torch.as_tensor(arr[None, None, ...] > 30, dtype=torch.float32)
         limit_cca = kornia.contrib.connected_components(arr_t, num_iterations=10)
         limit = max(torch.unique(limit_cca).shape[0], limit)
-        if limit < 1:  # make the minimum limit as 1.
-            limit = 1
+        limit = max(limit, 1)
+
+        if limit > (0.035 * arr.shape[0] * arr.shape[1]):  # no pre-tune thresholding if density beyond 3%
+            self.pretune_thresholding = None
+
+        if self.pretune_thresholding is not None:  # recalculate the limit after thresholding
+            arr[arr < self.pretune_thresholding] = 0
+            limit = int(arr.sum() / meanADU + offset)
+            limit = max(torch.unique(limit_cca).shape[0], limit)
+            limit = max(limit, 1)
+
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * self.p_list[0], 'testing': limit * self.p_list[0]}
         self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * self.p_list[1],
                                                    'testing': limit * self.p_list[1]}
@@ -117,6 +128,7 @@ class Locator:
 
         if limit > (0.005 * arr.shape[0] * arr.shape[1]) and self.dynamic_thres:  # 0.002 is minimum for model13
             self.dark_threshold = 0  # for image that not quite sparse, lift the pre-thresholding.
+
 
     def images_to_window_lists(self, inputs: torch.tensor) -> List[torch.tensor]:
         """
@@ -182,7 +194,6 @@ class Locator:
 
         image_cell_list, windowshape, maxs, mins = self.images_to_window_lists(inputs)
         for i, image_cell in enumerate(image_cell_list):
-
 
             if self.mode =='dynamic_window':
                 self.model_tune(image_cell)
