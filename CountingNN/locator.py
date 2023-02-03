@@ -110,20 +110,22 @@ class Locator:
         limit = max(torch.unique(limit_cca).shape[0], limit)
         limit = max(limit, 1)
 
-        if limit > (0.035 * 2 * arr.shape[0] * arr.shape[1]):  # no pre-tune thresholding if density beyond 3%
-            self.pretune_thresholding = None
-
-        if self.pretune_thresholding is not None:  # recalculate the limit after thresholding
-            arr[arr < self.pretune_thresholding] = 0
-            limit = int(arr.sum() / meanADU + offset)
-            limit = max(torch.unique(limit_cca).shape[0], limit)
-            limit = max(limit, 1)
+        # if limit > (0.035 * 2 * arr.shape[0] * arr.shape[1]):  # no pre-tune thresholding if density beyond 3%
+        #     self.pretune_thresholding = None
+        #
+        # if self.pretune_thresholding is not None:  # recalculate the limit after thresholding
+        #     arr[arr < self.pretune_thresholding] = 0
+        #     limit = int(arr.sum() / meanADU + offset)
+        #     limit = max(torch.unique(limit_cca).shape[0], limit)
+        #     limit = max(limit, 1)
 
         self.fastrcnn_model.rpn._pre_nms_top_n = {'training': limit * self.p_list[0], 'testing': limit * self.p_list[0]}
         self.fastrcnn_model.rpn._post_nms_top_n = {'training': limit * self.p_list[1],
                                                    'testing': limit * self.p_list[1]}
         self.fastrcnn_model.roi_heads.detections_per_img = int(limit * self.p_list[2])
-        self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
+        # self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit if limit < self.p_list[4] else 0
+        self.fastrcnn_model.roi_heads.score_thresh = self.p_list[3] / limit
+
         self.fastrcnn_model.roi_heads.nms_thresh = 0.02  # smaller, delete more detections
 
         if limit > (0.005 * arr.shape[0] * arr.shape[1]) and self.dynamic_thres:  # 0.002 is minimum for model13
