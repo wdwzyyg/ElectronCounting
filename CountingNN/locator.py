@@ -110,7 +110,7 @@ class Locator:
         limit = max(torch.unique(limit_cca).shape[0], limit)
         limit = max(limit, 1)
 
-        if limit > (0.035 * arr.shape[0] * arr.shape[1]):  # no pre-tune thresholding if density beyond 3%
+        if limit > (0.035 * 2 * arr.shape[0] * arr.shape[1]):  # no pre-tune thresholding if density beyond 3%
             self.pretune_thresholding = None
 
         if self.pretune_thresholding is not None:  # recalculate the limit after thresholding
