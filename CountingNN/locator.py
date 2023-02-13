@@ -302,5 +302,8 @@ class Locator:
         coords = torch.as_tensor(coor, dtype=torch.long).to(self.device)
         # eventsize = torch.as_tensor(eventsize, dtype=torch.long).to(self.device)
         if coords.shape[0]:
-            filtered[coords[:, 0], coords[:, 1]] = 1
+            #filtered[coords[:, 0], coords[:, 1]] = 1 # this does not account for >1 e on single pixel.
+            for point in coords:
+                filtered[point[0], point[1]] = filtered[point[0], point[1]] + 1
+
         return filtered, coords, eventsize
