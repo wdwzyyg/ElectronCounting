@@ -1,12 +1,10 @@
 from typing import List
 
 import kornia
+import numba
 import torch
 import torch.nn.functional as F
-
-
-def map01(mat):
-    return (mat - mat.min()) / (mat.max() - mat.min())
+from numba import jit
 
 
 def unravel_index(index, shape):
@@ -179,7 +177,8 @@ class Locator:
         return outputs, windows.shape, maxs, mins
 
     @torch.no_grad()
-    def predict_sequence(self, inputs: torch.tensor):
+    @jit(nopython=True, parallel=True)
+    def predict_sequence(self, inputs):
         """
         apply model on image one patch after another. The patches size equals the image size in training data, so that
         no need to tune the model detection limits for different limit sizes.
@@ -195,8 +194,9 @@ class Locator:
         counted_images = torch.zeros_like(inputs)
 
         image_cell_list, windowshape, maxs, mins = self.images_to_window_lists(inputs)
-        for i, image_cell in enumerate(image_cell_list):
-
+        #for i, image_cell in enumerate(image_cell_list):
+        for i in numba.prange(len(image_cell_list)):
+            image_cell = image_cell_list[i]
             if self.mode =='dynamic_window':
                 self.model_tune(image_cell)
             elif self.mode =='dynamic_frame':  # incorrect
@@ -242,6 +242,7 @@ class Locator:
 
         return counted_images, eventsize_all
 
+    @jit(nopython=True)
     def locate(self, image_array, boxes):
 
         width = 10
