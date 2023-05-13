@@ -1,6 +1,6 @@
 from typing import List
 
-import kornia
+# import kornia
 import torch
 import torch.nn.functional as F
 
@@ -40,6 +40,60 @@ def stich_windows(windows, k, cropx, cropy):
     final = torch.cat([row0] + rows + [row_last], dim=0)
     final = final[:cropx, :cropy]
     return final
+
+
+def connected_components(image: torch.Tensor, num_iterations: int = 100) -> torch.Tensor:
+    r"""Computes the Connected-component labelling (CCL) algorithm.
+
+    .. image:: https://github.com/kornia/data/raw/main/cells_segmented.png
+
+    The implementation is an adaptation of the following repository:
+
+    https://gist.github.com/efirdc/5d8bd66859e574c683a504a4690ae8bc
+
+    .. warning::
+        This is an experimental API subject to changes and optimization improvements.
+
+    .. note::
+       See a working example `here <https://kornia-tutorials.readthedocs.io/en/latest/
+       connected_components.html>`__.
+
+    Args:
+        image: the binarized input image with shape :math:`(*, 1, H, W)`.
+          The image must be in floating point with range [0, 1].
+        num_iterations: the number of iterations to make the algorithm to converge.
+
+    Return:
+        The labels image with the same shape of the input image.
+
+    Example:
+        >>> img = torch.rand(2, 1, 4, 5)
+        >>> img_labels = connected_components(img, num_iterations=100)
+    """
+    if not isinstance(image, torch.Tensor):
+        raise TypeError(f"Input imagetype is not a torch.Tensor. Got: {type(image)}")
+
+    if not isinstance(num_iterations, int) or num_iterations < 1:
+        raise TypeError("Input num_iterations must be a positive integer.")
+
+    if len(image.shape) < 3 or image.shape[-3] != 1:
+        raise ValueError(f"Input image shape must be (*,1,H,W). Got: {image.shape}")
+
+    H, W = image.shape[-2:]
+    image_view = image.view(-1, 1, H, W)
+
+    # precompute a mask with the valid values
+    mask = image_view == 1
+
+    # allocate the output tensors for labels
+    B, _, _, _ = image_view.shape
+    out = torch.arange(B * H * W, device=image.device, dtype=image.dtype).view((-1, 1, H, W))
+    out[~mask] = 0
+
+    for _ in range(num_iterations):
+        out[mask] = F.max_pool2d(out, kernel_size=3, stride=1, padding=1)[mask]
+
+    return out.view_as(image)
 
 
 class Locator:
@@ -106,7 +160,7 @@ class Locator:
         # up-sampled-by-2 image cell ans its original ground truth.
         limit = int(arr.sum() / meanADU + offset)
         arr_t = torch.as_tensor(arr[None, None, ...] > 30, dtype=torch.float32)
-        limit_cca = kornia.contrib.connected_components(arr_t, num_iterations=10)
+        limit_cca = connected_components(arr_t, num_iterations=10)
         limit = max(torch.unique(limit_cca).shape[0], limit)
         limit = max(limit, 1)
 
@@ -130,7 +184,6 @@ class Locator:
 
         if limit > (0.005 * arr.shape[0] * arr.shape[1]) and self.dynamic_thres:  # 0.002 is minimum for model13
             self.dark_threshold = 0  # for image that not quite sparse, lift the pre-thresholding.
-
 
     def images_to_window_lists(self, inputs: torch.tensor) -> List[torch.tensor]:
         """
@@ -184,7 +237,7 @@ class Locator:
         apply model on image one patch after another. The patches size equals the image size in training data, so that
         no need to tune the model detection limits for different limit sizes.
         """
-        self.fastrcnn_model.transform.crop_max = max(inputs.shape[1], inputs.shape[2])*2
+        self.fastrcnn_model.transform.crop_max = max(inputs.shape[1], inputs.shape[2]) * 2
         # make size_divisible equals process_stride here to avoid inconsistent padding issue.
         # self.fastrcnn_model.transform.size_divisible = self.process_stride * 2
         self.fastrcnn_model.eval()
@@ -197,22 +250,22 @@ class Locator:
         image_cell_list, windowshape, maxs, mins = self.images_to_window_lists(inputs)
         for i, image_cell in enumerate(image_cell_list):
 
-            if self.mode =='dynamic_window':
+            if self.mode == 'dynamic_window':
                 self.model_tune(image_cell)
-            elif self.mode =='dynamic_frame':  # incorrect
-                image_i = torch.div(i,  windowshape[0] * windowshape[1], rounding_mode='floor')
+            elif self.mode == 'dynamic_frame':  # incorrect
+                image_i = torch.div(i, windowshape[0] * windowshape[1], rounding_mode='floor')
                 self.model_tune(torch.nn.Upsample(scale_factor=2, mode='nearest')(inputs[image_i][None, None, ...]))
             elif self.mode == 'static':
-                torch._assert(self.process_stride==64,
+                torch._assert(self.process_stride == 64,
                               f"please use process_stride=64 for static mode."
                               )
                 pass
             else:
                 raise ValueError("Use mode = 'dynamic_window', dynamic_frame or 'static'. ")
-                
+
             # thresholding to remove dark noise before applying the model
             image_cell[image_cell < self.dark_threshold] = 0
-            
+
             image_cell_ori = image_cell
 
             image_cell = (image_cell - mins[i]) / (maxs[i] - mins[i])  # norm the image cells equally
@@ -302,7 +355,7 @@ class Locator:
         coords = torch.as_tensor(coor, dtype=torch.long).to(self.device)
         # eventsize = torch.as_tensor(eventsize, dtype=torch.long).to(self.device)
         if coords.shape[0]:
-            #filtered[coords[:, 0], coords[:, 1]] = 1 # this does not account for >1 e on single pixel.
+            # filtered[coords[:, 0], coords[:, 1]] = 1 # this does not account for >1 e on single pixel.
             for point in coords:
                 filtered[point[0], point[1]] = filtered[point[0], point[1]] + 1
 
