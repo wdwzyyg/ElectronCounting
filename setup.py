@@ -23,7 +23,7 @@ setup(
         "numpy>=1.20.1",
         # "scikit-learn>=1.0.2",
         # "matplotlib>=3.2.2",
-        "kornia>=0.6.9",
+        # "kornia>=0.6.9",
     ],
 
 )
