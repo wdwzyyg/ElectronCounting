@@ -1,3 +1,4 @@
+# used for cpu-only foundry publish
 numpy<=1.23.5
 --find-links https://download.pytorch.org/whl/torch_stable.html
 torch==1.12.0+cpu
